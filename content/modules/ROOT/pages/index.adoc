@@ -2,11 +2,11 @@
 
 Introduction to be written
 
-=== Lab structure
+== Lab structure
 
 Overview
 
-=== Connecting to your OpenShift Console
+== Connecting to your OpenShift Console
 
 . Open the OpenShift Console: {openshift_console_url}
 . Log in using user *{user}* and password *{password}*
