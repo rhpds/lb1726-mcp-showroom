@@ -2,3 +2,59 @@
 
 == Quick and dirty writeup of the demo flow
 
+. Log into the OpenShift console ({openshift_console_url})
+. Click on *Pipelines*
+. Switch to project *agent-{user}*
+. Examine the pipeline `build-agent` and notice 3 build steps and a *trigger-agent* (finally) step to always execute (you may need to zoom out or scroll to the right to see all 4 steps)
+. Switch to *YAML* view and examine the *trigger-agent* task under *finally*.
+. Notice the code in the step - where it checks if the pipeline is about to fail and if so calls the AI Agent with the namespace and name of the failing pod.
+. Switch to the *PipelineRuns* page.
+. Notice how the pipeline ran once upon environment deployment to build and deploy the agent itself.
+. Switch to workloads / pods and open the agent pod
+. Show the logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea.
+
+. In another tab open the Gitea repository {gitea_console_url}/{gitea_user}/mcp. You could log in using user {gitea_user} with password {gitea_password} - but that's not really necessary for now
+. Navigate to the agent directory in the Gitea mcp repository. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
+. You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
+. Optionally you could also show the `helm` directory which has the Helm Charts that make up the entire solution: The agent itself, the two MCP Servers (feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into Registry and Toolhive. But for now it's not really required understanding) and the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official Helm Chart and not this particular repository.
+
+== Demonstrate how the agent works
+
+=== Trigger a failing pipeline run
+
+. We already prepared a branch in the Gitea repository with the name `broken`. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
+. Now we need to trigger the pipeline again. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline.
+. Switch back to the OpenShift console, *Pipelines* and make sure you are in project `agent-{user}`.
+. Click on the Pipeline `build-agent` to open the pipeline view.
+. Start a new Pipeline run by clicking on *Actions -> Start*
+. Leave all the default parameters - except for the *GIT_REVISION*. Change the git revision (branch) to be used to `broken`.
+. Select `VolumeClaimTemplate` for the *workspace*. Leave all other options as they are.
+. Click *Start* to start the Pipeline run.
+. If you want to, show the pipeline run logs and see it fail. The build step takes quite a long time... until it fails.
+. At a minimum you would want to show that the second pipeline step (build) failed - and then you would want to show the *trigger-agent* finally task and especially the logs of that task.
+
+=== Show what the agent did
+
+. Switch to workloads / pods and open the agent pod
+. Show the pod logs and point out what the agent did.
+. Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
+
+. Navigate back to Gitea and open the *Issues* tab where you should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
+. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository.
+
+
+=== Investigating the issue
+
+. In another window open the Librechat interface: {librechat_url}
+. Your Librechat user is *{librechat_user}* with password *{librechat_password}*
+. Activate the model that you want to use by clicking on the *My Agents* button top left. Select `LiteMAAS -> llama-scout-17b`
+. In your chat text intro window click on the *MCP Servers* button and select both the `openshift` and `gitea` MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo)
+. The *MCP Servers* dropdown label shoudl change to read *2 selected*. This means that your model can now use both of them.
+
+. Start by asking the LLM about your Gitea user and your repositories:
++
+[source]
+----
+Tell me about my Gitea user and all repositories that I own.
+----
+
