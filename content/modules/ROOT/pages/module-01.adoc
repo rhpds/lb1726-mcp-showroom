@@ -2,6 +2,8 @@
 
 == Quick and dirty writeup of the demo flow
 
+=== OpenShift Setup
+
 . Log into the OpenShift console ({openshift_console_url})
 . Click on *Pipelines*
 . Switch to project *agent-{user}*
@@ -13,7 +15,9 @@
 . Switch to workloads / pods and open the agent pod
 . Show the logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea.
 
-. In another tab open the Gitea repository {gitea_console_url}/{gitea_user}/mcp. You could log in using user {gitea_user} with password {gitea_password} - but that's not really necessary for now
+=== Source Code
+
+. In another tab open the *Gitea* repository {gitea_console_url}/{gitea_user}/mcp. You could log in using user *{gitea_user}* with password *{gitea_password}* - but that's not really necessary for now
 . Navigate to the agent directory in the Gitea mcp repository. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
 . You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
 . Optionally you could also show the `helm` directory which has the Helm Charts that make up the entire solution: The agent itself, the two MCP Servers (feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into Registry and Toolhive. But for now it's not really required understanding) and the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official Helm Chart and not this particular repository.
@@ -37,12 +41,11 @@
 === Show what the agent did
 
 . Switch to workloads / pods and open the agent pod
-. Show the pod logs and point out what the agent did.
+. Show the pod logs and point out what the agent did. The interesting bit starts with *📥 Received failure report*. In *Iteration 1* it gets the pod logs from OpenShift while in *Iteration 2* it opens the issue in Gitea.
 . Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
 
-. Navigate back to Gitea and open the *Issues* tab where you should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
-. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository.
-
+. Navigate back to *Gitea* and open the *Issues* tab where you should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
+. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP Servers available to all kinds of scenarios.
 
 === Investigating the issue
 
@@ -59,3 +62,50 @@
 Tell me about my Gitea user and all repositories that I own.
 ----
 
+. Get a list of all pods in the `agent-{user}` namespace (sometimes you need to ask twice):
++
+[source,subs=attributes]
+----
+What pods are running in namespasce agent-{user}
+----
+
+. Ask for pods in `Error` state (note that it remembers the namespace from the previous command):
++
+[source,subs=attributes]
+----
+What pods are in Error state?
+----
+
+. Get the full pod logs (replace the pod name with your pod name from the previous output):
++
+[source,subs=attributes]
+----
+Show me the pod logs for pod build-agent-13ru7o-build-pod.
+----
+
+. Ask how to fix the issue
++
+[source,subs=attributes]
+----
+How can I fix that issue?
+----
+
+
+== Deep dive on MCP
+
+Exact scenario TBD
+
+* Explain ToolHive
+* Explain how the MCP Servers got deployed
+* Explain MCP Server transports and the proxy approach from ToolHive
+* Explain RBAC (for OpenShift MCP Server) and authentication (token) for the Gitea MCP Server
+* Explain - and maybe show - how to limit the tools that each MCP Server is allowed to use. For example restrict any "write" tool, redeploy the MCP Server (change the Gitea Repo - Gitops will do that automatically) - and then try in LibreChat to ask the LLM for a write operation which should fail.
+ 
+Maybe add
+
+* Explain the concept of an MCP Registry
+* Deploy an MCP Registry
+* Register the two MCP Servers in the Registry
+* Change the deployment to deploy from the registry instead of from the container image
+* Image signing?
+* Authentication (Oauth - ask Andrew Block)
