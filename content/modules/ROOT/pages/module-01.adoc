@@ -32,6 +32,7 @@
 . Click *Start* to start the Pipeline run.
 . If you want to, show the pipeline run logs and see it fail. The build step takes quite a long time... until it fails.
 . At a minimum you would want to show that the second pipeline step (build) failed - and then you would want to show the *trigger-agent* finally task and especially the logs of that task.
+. Note what the *trigger-agent* task passes to the agent: *ONLY* the namespace, pod name and container name. You can explain that the agent will use the OpenShift MCP Server to figure out what failed in that task.
 
 === Show what the agent did
 
