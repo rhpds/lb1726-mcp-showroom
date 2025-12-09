@@ -4,10 +4,8 @@ Introduction to be written
 
 == Lab structure
 
-Overview
+Overview TBD
 
-== Connecting to your OpenShift Console
-
-. Open the OpenShift Console: {openshift_console_url}
-. Log in using user *{user}* and password *{password}*
-. Upon seeing the OpenShift Console click on *Skip tour* and then minimize the annoying Lightspeed popup. Note to self - remove the lightspeed icon for the users.
+* Module 1
+* Module 2
+* ...
