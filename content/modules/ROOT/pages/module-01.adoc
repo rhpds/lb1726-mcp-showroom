@@ -12,7 +12,7 @@
 
 === Show infrastructure
 
-. Click on *Pipelines*
+. Click on *Pipelines*. Depending on the size of your screen you'll have to click the Hamburger menu to show the navigation pane.
 . Switch to project *agent-{user}*
 . Examine the pipeline `build-agent` and notice 3 build steps and a *trigger-agent* (finally) step to always execute (you may need to zoom out or scroll to the right to see all 4 steps)
 . Switch to *YAML* view and examine the *trigger-agent* task under *finally*.
@@ -25,15 +25,16 @@
 === Source Code
 
 . In the panel on the right switch to the *Gitea* tab. You could log in using user *{gitea_user}* with password *{gitea_password}* - but that's not really necessary for now.
-. In the Gitea mcp repository navigate to the your user's `mcp` repository and then the `agent` directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
+. In the Gitea mcp repository navigate to the your user's `mcp` repository. Click on *Explore*, then *{gitea_user} / mcp*.
+. Open the `agent` directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
 . You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
-. Optionally you could also show the `helm` directory which has the Helm Charts that make up the entire solution: The agent itself, the two MCP Servers (feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into Registry and Toolhive. But for now it's not really required understanding) and the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official Helm Chart and not this particular repository.
+. Optionally you could also show the `helm` directory which has the Helm Charts that make up the entire solution: The agent itself, the two MCP Servers (feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding) and the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official Helm Chart and not this particular repository.
 
 == Demonstrate how the agent works
 
 === Trigger a failing pipeline run
 
-. We already prepared a branch in the Gitea repository with the name `broken`. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
+. We already prepared a branch in the Gitea repository with the name `broken`. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
 . Now we need to trigger the pipeline again. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline.
 . Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}`.
 . Click on the Pipeline `build-agent` to open the pipeline view.
@@ -51,7 +52,7 @@
 . Show the pod logs and point out what the agent did. The interesting bit starts with *📥 Received failure report*. In *Iteration 1* it gets the pod logs from OpenShift while in *Iteration 2* it opens the issue in Gitea.
 . Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
 
-. Switch to the *Gitea* tab and open the *Issues* link under the `mcp` repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
+. Switch to the *Gitea* tab and open the *Issues* link under your `mcp` repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
 . Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP Servers available to all kinds of scenarios.
 
 === Investigating the issue
