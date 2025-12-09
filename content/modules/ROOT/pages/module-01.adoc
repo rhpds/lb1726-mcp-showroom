@@ -1,10 +1,8 @@
-= Demo Flow
+= Quick and dirty writeup of the demo flow
 
-== Quick and dirty writeup of the demo flow
+== Explore the Environment
 
-=== OpenShift Setup
-
-== Connecting to your OpenShift Console
+=== Connecting to your OpenShift Console
 
 . On the right switch to the *OpenShift Console* tab if it's not already selected.
 . Log in using user *{user}* and password *{password}*
@@ -65,39 +63,38 @@
 
 . Start by asking the LLM about your Gitea user and your repositories:
 +
-[source]
+[source,role="execute"]
 ----
 Tell me about my Gitea user and all repositories that I own.
 ----
 
 . Get a list of all pods in the `agent-{user}` namespace (sometimes you need to ask twice):
 +
-[source,subs=attributes]
+[source,role="execute",subs=attributes]
 ----
 What pods are running in namespasce agent-{user}
 ----
 
 . Ask for pods in `Error` state (note that it remembers the namespace from the previous command):
 +
-[source,subs=attributes]
+[source,role="execute"]
 ----
 What pods are in Error state?
 ----
 
 . Get the full pod logs (replace the pod name with your pod name from the previous output):
 +
-[source,subs=attributes]
+[source,role="execute"]
 ----
 Show me the pod logs for pod build-agent-13ru7o-build-pod.
 ----
 
 . Ask how to fix the issue
 +
-[source,subs=attributes]
+[source,role="execute"]
 ----
 How can I fix that issue?
 ----
-
 
 == Deep dive on MCP
 
