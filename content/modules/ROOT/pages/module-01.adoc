@@ -35,7 +35,7 @@
 === Trigger a failing pipeline run
 
 . We already prepared a branch in the Gitea repository with the name `broken`. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
-. Now we need to trigger the pipeline again. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline.
+. Now we need to trigger the pipeline again. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline whenever a new change is pushed.
 . Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}`.
 . Click on the Pipeline `build-agent` to open the pipeline view.
 . Start a new Pipeline run by clicking on *Actions -> Start*
