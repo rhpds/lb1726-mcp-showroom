@@ -1,6 +1,6 @@
-NOTE: Use https://github.com/rhpds/showroom_template_nookbag instead
+=== MCP
 
-=== Getting Started
+NOTE: Use https://github.com/rhpds/showroom_template_nookbag instead
 
 This template is designed to be used as a base for your showroom lab guides.
 
