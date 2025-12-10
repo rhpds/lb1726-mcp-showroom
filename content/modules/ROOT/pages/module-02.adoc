@@ -1,0 +1,116 @@
+= MCP Server management
+
+== Allowing a list specific tools
+
+// https://docs.stacklok.com/toolhive/guides-k8s/customize-tools
+
+Most MCP Servers offer a range of tools - sometimes you don't want to allow using all of them. Using the `MCPServer` resource it's easy to configure that by specifying an allow list of allowed tools.
+
+. In Gitea navigate to {user}/mcp/helm/mcp-openshift/templates and create a new file `mcptoolconfig.yaml`:
+[source,yaml]
+====
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPToolConfig
+metadata:
+  name: openshift-tool-filter
+  namespace: {{ .Values.namespace }}
+spec:
+  toolsFilter:
+  - events_list
+  - namespaces_list
+  - pods_get
+  - pods_list
+  - pods_list_in_namespace
+  - pods_log
+  - resources_get
+  - resources_list
+====
+. Commit and save the file.
+
+. Next edit the file `mcpserver.yaml` to pick up the new tool filter.
+. Add this to the `spec` which will allow only the listed tools. This should still be enough for our use agent.
+[source,yaml]
+====
+  toolConfigRef:
+    name: openshift-tool-filter
+====
+. Commit the file
+. Check that the new MCP Server has been rolled out (I had to sync argo... need to make the check much shorter)
+. Test that the change worked.
+.. In Librechat try to list the pods again
+[source,sh,role=execute]
+====
+List the running pods in namespace agent-user1.
+====
++
+You see that the one running pod is returned.
+
+.. Try to delete the pod (use your pod name instead of the example below):
+[source,sh,role=execute]
+====
+Delete pod agent-6d8777b969-fmtxz in namespace agent-user1
+====
++
+You should see that the request got cancelled. If you click the twistie you can see this result:
+[source]
+====
+Error processing tool: [MCP][openshift][pods_delete] tool call failed: Error POSTing to endpoint (HTTP 400):
+====
+
+== Telemetry
+
+Adding metrics to Prometheus
+. Edit the file `mcpserver.yaml` to include this under `spec:`:
+[source,yaml]
+====
+  telemetry:
+    prometheus:
+      enabled: true
+====
+. Commit the file. Sync.
+. When the change has rolled out you can test by using the route:
+[source,sh,role=execute,subs=attributes]
+====
+curl https://mcp-openshift-mcp-openshift-{user}.{{ openshift_cluster_ingress_domain }}/metrics
+====
+
+. Create a new file `servicemonitor.yaml`:
++
+[source,yaml]
+====
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-openshift
+  namespace: {{ .Values.namespace }}
+  labels:
+    team: mcp
+spec:
+  namespaceSelector:
+    matchNames:
+    - {{ .Values.namespace }}
+  selector:
+    matchLabels:
+      app: mcpserver
+      toolhive-name: openshift
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 30s
+    scheme: http
+====
+. Commit and sync.
+. Hrm. Can't be seen by regular users. As Admin you could go in the OpenShift Console to Observe -> Metrics and query for `toolhive_mcp_active_connections` or `toolhive_mcp_requests_total`.
+.. First enable Monitoring for User-Workloads. Create this configmap:
+[source,yaml]
+====
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+====
+

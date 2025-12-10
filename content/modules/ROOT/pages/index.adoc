@@ -6,6 +6,5 @@ Introduction to be written
 
 Overview TBD
 
-* Module 1
-* Module 2
-* ...
+* Module 1: Quick and dirty demo flow
+* Module 2: MCP Server administration
