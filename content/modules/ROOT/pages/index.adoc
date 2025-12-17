@@ -19,19 +19,19 @@ On the right hand side you see three tabs. On each tab log into the application 
 Your user's password is the same everywhere.
 ====
 
-=== Connecting to your OpenShift Console
+=== OpenShift Console
 
 . On the right panel switch to the *OpenShift Console* tab if it's not already selected.
 . Log in using user `{user}` and password `{password}`
 . Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
 
-=== Librechat
+=== LibreChat
 
 . On the right panel switch to the *LibreChat* tab.
-. Log in using your Librechat user: `{librechat_user}` with password `{librechat_password}`
+. Log in using your LibreChat user: `{librechat_user}` with password `{librechat_password}`
 
 === Gitea
 
 . On the right panel switch to the *Gitea* tab.
-. Log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
-. Navigate to the your user's `mcp` repository. Click on *Explore*, then *{gitea_user} / mcp*.
+. Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
+. Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.

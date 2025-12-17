@@ -4,6 +4,7 @@
 
 === Show infrastructure
 
+. Navigate to the *OpenShift Console* tab on the right.
 . Click on the *agent-{user}* project.
 . Click on *Pipelines*.
 +
@@ -13,17 +14,42 @@ Depending on the size of your screen you'll have to click the Hamburger menu to 
 ====
 . Examine the pipeline `build-agent` and notice 3 build steps and a *trigger-agent* (finally) step to always execute (you may need to zoom out or scroll to the right to see all 4 steps)
 . Switch to *YAML* view and examine the *trigger-agent* task under *finally*.
-. Notice the code in the step - where it checks if the pipeline is about to fail and if so calls the AI Agent with the namespace and name of the failing pod.
+. Notice the code in the step (lines 54 - 60) - where it checks if any step in the pipeline failed. If a step failed it calls the AI Agent with the namespace and name of the failing pod.
 . Switch to the *PipelineRuns* page.
 . Notice how the pipeline ran once upon environment deployment to build and deploy the agent itself.
-. Switch to the *Topology* view and click on the agent pod.
-. Click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea.
+. Switch to the *Topology* view and click on the agent `Deployment`.
+. Next to the pod name click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea. You can also point out the list of tools that each MCP server advertised.
++
+[source]
+----
+============================================================
+🚀 Pipeline Failure Agent - Starting up
+============================================================
+📋 Loading MCP configuration from environment...
+OpenShift: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse#openshift (sse)
+Gitea: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp (streamable-http)
+🔌 Initializing MCP connections (2 servers)...
+Connecting to openshift (sse)...
+URL: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse#openshift
+SSE message endpoint: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse?sessionid=SWA7CHWWO63ZB7K7YBN6PP4AAL
+SSE init result: {'jsonrpc': '2.0', 'id': 1, 'result': {'capabilities': {'logging': {}, 'tools': {'listChanged': True}}, 'protocolVersion': '2024-11-05', 'serverInfo': {'name': 'kubernetes-mcp-server', 'title': 'kubernetes-mcp-server', 'version': 'v0.0.55'}}}
+✅ openshift: connected
+Tools (23): ['configuration_view', 'events_list', 'helm_install', 'helm_list', 'helm_uninstall', 'namespaces_list', 'nodes_log', 'nodes_stats_summary', 'nodes_top', 'pods_delete', 'pods_exec', 'pods_get', 'pods_list', 'pods_list_in_namespace', 'pods_log', 'pods_run', 'pods_top', 'projects_list', 'resources_create_or_update', 'resources_delete', 'resources_get', 'resources_list', 'resources_scale']
+Connecting to gitea (streamable-http)...
+URL: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp
+✅ gitea: connected
+Tools (57): ['add_issue_labels', 'clear_issue_labels', 'create_branch', 'create_file', 'create_issue', 'create_issue_comment', 'create_org_label', 'create_pull_request', 'create_pull_request_reviewer', 'create_release', 'create_repo', 'create_repo_label', 'create_tag', 'create_wiki_page', 'delete_branch', 'delete_file', 'delete_org_label', 'delete_release', 'delete_repo_label', 'delete_tag', 'delete_wiki_page', 'edit_issue', 'edit_issue_comment', 'edit_org_label', 'edit_repo_label', 'fork_repo', 'get_dir_content', 'get_file_content', 'get_gitea_mcp_server_version', 'get_issue_by_index', 'get_issue_comments_by_index', 'get_latest_release', 'get_my_user_info', 'get_pull_request_by_index', 'get_release', 'get_repo_label', 'get_tag', 'get_user_orgs', 'get_wiki_page', 'get_wiki_revisions', 'list_branches', 'list_my_repos', 'list_org_labels', 'list_releases', 'list_repo_commits', 'list_repo_issues', 'list_repo_labels', 'list_repo_pull_requests', 'list_tags', 'list_wiki_pages', 'remove_issue_label', 'replac...
+✅ Startup complete - 80 tools available
+============================================================
+INFO: Application startup complete.
+INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+----
 
 == Demonstrate how the agent works
 
 === Trigger a failing pipeline run
 
-. We already prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
+. We prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
 . Now we need to trigger the pipeline to attempt to build the agent. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline whenever a new change is pushed.
 . Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}` and are looking at *Pipelines*.
 . Click on the Pipeline *build-agent* to open the pipeline view.
@@ -32,12 +58,21 @@ Depending on the size of your screen you'll have to click the Hamburger menu to 
 . Select `VolumeClaimTemplate` for the *workspace*. Leave all other options as they are.
 . Click *Start* to start the Pipeline run.
 . If you want to, show the pipeline run logs and see it fail. The build step takes quite a long time (few minutes)... until it fails.
-. At a minimum you would want to show that the second pipeline step (build) failed - and then you would want to show the *trigger-agent* finally task and especially the logs of that task.
+. At a minimum, you would want to show that the second pipeline step (build) failed - and then you would want to show the *trigger-agent* finally task and especially the logs of that task.
 . Note what the *trigger-agent* task passes to the agent: *ONLY* the namespace, pod name and container name. You can explain that the agent uses the OpenShift MCP Server to figure out what failed in that task.
++
+[source]
+----
+[...]
++ curl -i -H 'Content-Type: application/json' -X POST -d '{"namespace":"agent-user57","pod_name":"build-agent-mtkhb0-build-pod-retry2","container_name":"step-buildah"}' http://agent.agent-user57.svc:8000/report-failure
+[...]
+{"status":"success","result":"Issue created: {\"Result\":{\"id\":1,\"url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/api/v1/repos/user57/mcp/issues/1\",\"html_url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/user57/mcp/issues/1\",\"number\":1,\"user\":{\"id\":58,\"login\":\"user57\",\"login_name\":\"user57\",\"source_id\":0,\"full_name\":\"\",\"email\":\"user57@opentlc.com\",\"avatar_url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/avatar/843dd77a02def9ebcb459ba9b0c89646\",\"language\":\"en-US\",\"is_admin\":false,\"last_login\":\"2025-12-17T15:45:53Z\",\"created\":\"2025-12-17T14:27:55Z\",\"restricted\":false,\"active\":true,\"prohibit_login\":false,\"location\":\"\",\"website\":\"\",\"description\":\"\",\"visibility\":\"public\",\"followers_count\":0,\"following_count\":0,\"starred_repos_count\":0},\"original_author\":\"\",\"original_author_id\":0,\"title\":\"Issue with Agent pipeline\",\"body\":\"### Cluster/namespace location\\nagent-user57/build-agent-mtkhb0-build-pod-retry2\\n\\n### Summary of the problem\\nThe pod is failing to build the agent image due to a missing `requirements.txt` file.\\n\\n### Detailed error/code\\nError: building at STEP \\\"COPY requirements.txt .\\\": checking on sources under \\\"/workspace/source/agent\\\": copier: stat: \\\"/requirements.txt\\\": no such file or directory\\n\\n### Possible solutions\\n1. Verify that a `requirements.txt` file exists in the `/workspace/source/agent` directory.\\n2. Update the `Containerfile` to reference the correct location of the `requirements.txt` file if it exists in a different directory.\",\"ref\":\"\",\"labels\":[],\"milestone\":null,\"assignees\":null,\"state\":\"open\",\"is_locked\":false,\"comments\":0,\"created_at\":\"2025-12-17T15:58:55Z\",\"updated_at\":\"2025-12-17T15:58:55Z\",\"closed_at\":null,\"due_date\":null,\"pull_request\":null,\"repository\":{\"id\":57,\"name\":\"mcp\",\"owner\":\"user57\",\"full_name\":\"user57/mcp\"}}}"}
+----
 
 === Show what the agent did
 
-. Switch to *Topologys* and open the *agent-xxxxx* pod (your specific pod name will be different).
+. Switch back to *Topology* and click on the agent `Deployment`.
+. Next to the pod name click on *View logs* to show the pod logs
 . Show the pod logs and point out what the agent did. The interesting bit starts with
 +
 [source,sh,role=execute,subs=attributes]
@@ -76,9 +111,9 @@ What pods are running in namespasce agent-{user}
 
 . Ask for pods in `Error` state (note that it remembers the namespace from the previous command):
 +
-[source,role="execute"]
+[source,role="execute",subs=attributes]
 ----
-What pods are in Error state?
+What pods in namespasce agent-{user} are in Error state?
 ----
 
 . Get the full pod logs (replace the pod name with your pod name from the previous output):
