@@ -6,10 +6,11 @@
 
 Most MCP Servers offer a range of tools - sometimes you don't want to allow using all of them. Using the `MCPServer` resource it's easy to configure that by specifying an allow list of allowed tools.
 
-. In Gitea navigate to {user}/mcp/helm/mcp-openshift/templates and create a new file `mcptoolconfig.yaml`:
+. In Gitea navigate to `{user}/mcp/helm/mcp-openshift/templates` and create a new file `mcptoolconfig.yaml`:
 +
 [source,yaml,role=execute]
 ----
+---
 apiVersion: toolhive.stacklok.dev/v1alpha1
 kind: MCPToolConfig
 metadata:
@@ -81,13 +82,14 @@ Edit the file `mcpserver.yaml` to include this under `spec:`:
 +
 [source,sh,role=execute,subs=attributes]
 ----
-curl https://mcp-openshift-mcp-openshift-{user}.{{ openshift_cluster_ingress_domain }}/metrics
+curl https://mcp-openshift-mcp-openshift-{user}.{openshift_cluster_ingress_domain}/metrics
 ----
 
 . Create a new file `servicemonitor.yaml`:
 +
 [source,yaml,role=execute]
 ----
+---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -111,17 +113,50 @@ spec:
 ----
 
 . Commit and sync.
-. Go in the OpenShift Console to Observe -> Metrics and query for `toolhive_mcp_active_connections` or `toolhive_mcp_requests_total`.
-// .. First enable Monitoring for User-Workloads. Create this configmap:
-// [source,yaml]
-// ----
-// apiVersion: v1
-// kind: ConfigMap
-// metadata:
-//   name: cluster-monitoring-config
-//   namespace: openshift-monitoring
-// data:
-//   config.yaml: |
-//     enableUserWorkload: true
-// ----
+. Switch to the `mcp-openshift-{user}` project.
+. In the OpenShift Console navigate to Observe -> Metrics and query for `toolhive_mcp_active_connections` or `toolhive_mcp_requests_total`.
 
+
+
+== Deep dive on MCP
+
+Exact scenario TBD
+
+* Explain ToolHive
+* Explain how the MCP Servers got deployed
+* Explain MCP Server transports and the proxy approach from ToolHive
+* Explain RBAC (for OpenShift MCP Server) and authentication (token) for the Gitea MCP Server
+* Explain - and maybe show - how to limit the tools that each MCP Server is allowed to use. For example restrict any "write" tool, redeploy the MCP Server (change the Gitea Repo - Gitops will do that automatically) - and then try in LibreChat to ask the LLM for a write operation which should fail.
+ 
+Maybe add
+
+* Explain the concept of an MCP Registry
+* Deploy an MCP Registry
+* Register the two MCP Servers in the Registry
+* Change the deployment to deploy from the registry instead of from the container image
+* Image signing?
+* Authentication (Oauth - ask Andrew Block)
+
+From Daniele Martinoli:
+
+====
+Regarding your request for advanced operator functions, the lack of a consistent UI is a challenge, but here are some ideas.
+
+Server Lifecycle
+
+* Advanced Settings: Mention configurations like tool filtering, name overriding, and OIDC/token exchange. Note these should eventually be managed by the MCP gateway on RH platforms.
+* Stdio Transport Conversion: Highlight the automatic conversion of stdio transport protocols to streamable HTTP.
+* Observability: Demonstrate observability features (See https://dev.to/stacklok/from-black-box-to-observable-deploying-toolhive-with-otel-prometheus-in-kubernetes-lhg[article reference]).
+* Upcoming Demo: @Roddie Kieley is preparing a demo for the OpenShift Applied AI WG next Wednesday, which might offer further ideas.
+
+MCP Registry
+
+* Static Catalog & MCPRegistry Deployment: We can try generating a JSON for a static catalog of your servers. You can then deploy the corresponding MCPRegistry (requires a Postgres DB) to advertise these servers via https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[standard API]. I can share manifests if needed.
+* Dynamic Registration Flow: Showcase this flow: 1. Deploy an MCPServer (with annotations). 2. Query the registry for available MCP endpoints (should show the new server). 3. Connect the agent to the new endpoint.
+* UI Workaround: A Notebook could be used to demonstrate the server list since a dedicated UI is missing.
+
+Image Signing and Verification
+
+* Provenance Information: Mention that the registry models provenance fields, but currently doesn't verify the running server uses the signed image version. This info is available for future use.
+* Future Verification Support: The https://docs.google.com/document/d/1g2lWdVNjnOk0K56Zj1zZ3BJaOAHOH1FaegRxpFgdcV4/edit?pli=1&tab=t.0#heading=h.rcukcjg8j01s[Toolhive-Registry-Server] document proposes "Support for enforcing provenance verification (enable/disable)" in the next version. If you have any proposal for other relevant features, please send to me, as the document is closed for comments.
+====

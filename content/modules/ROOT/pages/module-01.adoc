@@ -2,31 +2,22 @@
 
 == Explore the Environment
 
-=== Connecting to your OpenShift Console
-
-. On the right switch to the *OpenShift Console* tab if it's not already selected.
-. Log in using user *{user}* and password *{password}*
-. Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
-
 === Show infrastructure
 
 . Click on the *agent-{user}* project.
-. Click on *Pipelines*. Depending on the size of your screen you'll have to click the Hamburger menu to show the navigation pane.
+. Click on *Pipelines*.
++
+[NOTE]
+====
+Depending on the size of your screen you'll have to click the Hamburger menu to show the navigation pane.
+====
 . Examine the pipeline `build-agent` and notice 3 build steps and a *trigger-agent* (finally) step to always execute (you may need to zoom out or scroll to the right to see all 4 steps)
 . Switch to *YAML* view and examine the *trigger-agent* task under *finally*.
 . Notice the code in the step - where it checks if the pipeline is about to fail and if so calls the AI Agent with the namespace and name of the failing pod.
 . Switch to the *PipelineRuns* page.
 . Notice how the pipeline ran once upon environment deployment to build and deploy the agent itself.
-. Switch to workloads / pods and open the agent pod
-. Show the logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea.
-
-=== Source Code
-
-. In the panel on the right switch to the *Gitea* tab. Log in using user *{gitea_user}* with password *{gitea_password}*.
-. Navigate to the your user's `mcp` repository. Click on *Explore*, then *{gitea_user} / mcp*.
-. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
-. You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
-. Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP Servers. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.
+. Switch to the *Topology* view and click on the agent pod.
+. Click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea.
 
 == Demonstrate how the agent works
 
@@ -34,7 +25,7 @@
 
 . We already prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
 . Now we need to trigger the pipeline to attempt to build the agent. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline whenever a new change is pushed.
-. Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}`.
+. Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}` and are looking at *Pipelines*.
 . Click on the Pipeline *build-agent* to open the pipeline view.
 . Start a new Pipeline run by clicking on *Actions -> Start*
 . Leave all the default parameters - except for the *GIT_REVISION*. Change the git revision (branch) to be used to `broken`.
@@ -46,17 +37,25 @@
 
 === Show what the agent did
 
-. Switch to *Workloads -> Pods* and open the *agent-xxxxx* pod (your specific pod name will be different).
-. Show the pod logs and point out what the agent did. The interesting bit starts with *📥 Received failure report*. In *Iteration 1* the agent gets the pod logs from OpenShift while in *Iteration 2* the agent opens a new issue in Gitea.
+. Switch to *Topologys* and open the *agent-xxxxx* pod (your specific pod name will be different).
+. Show the pod logs and point out what the agent did. The interesting bit starts with
++
+[source,sh,role=execute,subs=attributes]
+====
+============================================================
+📥 Received failure report
+============================================================
+====
++
+In *Iteration 1* the agent gets the pod logs from OpenShift while in *Iteration 2* the agent opens a new issue in Gitea.
 . Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
 
-. Switch to the *Gitea* tab and open the *Issues* link under your *mcp* repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
+. Switch to the *Gitea* tab and open the *Issues* link under your *{user}/mcp* repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
 . Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP Servers available to all kinds of scenarios.
 
 === Investigating the issue
 
 . On the right switch to *LibreChat*.
-. Log in using your Librechat user: *{librechat_user}* with password *{librechat_password}*
 . Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
 . In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo)
 . The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both of them.
@@ -96,45 +95,10 @@ Show me the pod logs for pod build-agent-13ru7o-build-pod.
 How can I fix that issue?
 ----
 
-== Deep dive on MCP
+=== Agent Source Code (optional)
 
-Exact scenario TBD
-
-* Explain ToolHive
-* Explain how the MCP Servers got deployed
-* Explain MCP Server transports and the proxy approach from ToolHive
-* Explain RBAC (for OpenShift MCP Server) and authentication (token) for the Gitea MCP Server
-* Explain - and maybe show - how to limit the tools that each MCP Server is allowed to use. For example restrict any "write" tool, redeploy the MCP Server (change the Gitea Repo - Gitops will do that automatically) - and then try in LibreChat to ask the LLM for a write operation which should fail.
- 
-Maybe add
-
-* Explain the concept of an MCP Registry
-* Deploy an MCP Registry
-* Register the two MCP Servers in the Registry
-* Change the deployment to deploy from the registry instead of from the container image
-* Image signing?
-* Authentication (Oauth - ask Andrew Block)
-
-From Daniele Martinoli:
-
-====
-Regarding your request for advanced operator functions, the lack of a consistent UI is a challenge, but here are some ideas.
-
-Server Lifecycle
-
-* Advanced Settings: Mention configurations like tool filtering, name overriding, and OIDC/token exchange. Note these should eventually be managed by the MCP gateway on RH platforms.
-* Stdio Transport Conversion: Highlight the automatic conversion of stdio transport protocols to streamable HTTP.
-* Observability: Demonstrate observability features (See https://dev.to/stacklok/from-black-box-to-observable-deploying-toolhive-with-otel-prometheus-in-kubernetes-lhg[article reference]).
-* Upcoming Demo: @Roddie Kieley is preparing a demo for the OpenShift Applied AI WG next Wednesday, which might offer further ideas.
-
-MCP Registry
-
-* Static Catalog & MCPRegistry Deployment: We can try generating a JSON for a static catalog of your servers. You can then deploy the corresponding MCPRegistry (requires a Postgres DB) to advertise these servers via https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[standard API]. I can share manifests if needed.
-* Dynamic Registration Flow: Showcase this flow: 1. Deploy an MCPServer (with annotations). 2. Query the registry for available MCP endpoints (should show the new server). 3. Connect the agent to the new endpoint.
-* UI Workaround: A Notebook could be used to demonstrate the server list since a dedicated UI is missing.
-
-Image Signing and Verification
-
-* Provenance Information: Mention that the registry models provenance fields, but currently doesn't verify the running server uses the signed image version. This info is available for future use.
-* Future Verification Support: The https://docs.google.com/document/d/1g2lWdVNjnOk0K56Zj1zZ3BJaOAHOH1FaegRxpFgdcV4/edit?pli=1&tab=t.0#heading=h.rcukcjg8j01s[Toolhive-Registry-Server] document proposes "Support for enforcing provenance verification (enable/disable)" in the next version. If you have any proposal for other relevant features, please send to me, as the document is closed for comments.
-====
+. In the panel on the right switch to the *Gitea* tab.
+. Navigate to the your user's `mcp` repository if you aren't already there.
+. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
+. You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
+. Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP Servers. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.

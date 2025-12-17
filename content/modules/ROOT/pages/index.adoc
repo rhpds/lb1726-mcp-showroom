@@ -1,10 +1,37 @@
 = {lab_name}
 
-Introduction to be written
+Introduction to be written.
 
 == Lab structure
 
-Overview TBD
-
 * Module 1: Quick and dirty demo flow
 * Module 2: MCP Server administration
+
+== Lab setup
+
+Your environment has already been pre-configured for you.
+
+Your Showroom is split into two parts. You are reading these instructions on the left.
+On the right hand side you see three tabs. On each tab log into the application to prepare for the demo/lab.
+
+[HINT]
+====
+Your user's password is the same everywhere.
+====
+
+=== Connecting to your OpenShift Console
+
+. On the right panel switch to the *OpenShift Console* tab if it's not already selected.
+. Log in using user `{user}` and password `{password}`
+. Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
+
+=== Librechat
+
+. On the right panel switch to the *LibreChat* tab.
+. Log in using your Librechat user: `{librechat_user}` with password `{librechat_password}`
+
+=== Gitea
+
+. On the right panel switch to the *Gitea* tab.
+. Log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
+. Navigate to the your user's `mcp` repository. Click on *Explore*, then *{gitea_user} / mcp*.
