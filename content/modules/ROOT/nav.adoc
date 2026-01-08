@@ -1,2 +1,2 @@
-* xref:module-01.adoc[Quick and dirty demo run]
+* xref:module-01.adoc[Soverein SRE Agent Demo]
 * xref:module-02.adoc[MCP Server Administration]

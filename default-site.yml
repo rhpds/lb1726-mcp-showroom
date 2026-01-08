@@ -1,6 +1,6 @@
 ---
 site:
-  title: LB1726 MCP
+  title: LB1726 MCP Demo and MCP Server Management
   url: https://redhat-scholars.github.io/course-template
   start_page: modules::index.adoc
 

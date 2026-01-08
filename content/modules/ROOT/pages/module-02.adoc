@@ -1,10 +1,126 @@
-= MCP Server management
+= MCP Server Management
 
-== Allowing a list specific tools
+In Module 1, you experienced MCP in action — an autonomous agent diagnosing pipeline failures and creating issues, plus interactive infrastructure queries through LibreChat. The MCP servers in that demo were pre-configured for ease of use, with all tools enabled and minimal security constraints.
 
-// https://docs.stacklok.com/toolhive/guides-k8s/customize-tools
+Production deployments require a different approach. When AI agents can interact with your infrastructure, you need the same rigor you apply to any other privileged access: principle of least privilege, comprehensive audit trails, and observability into what's happening. This module covers the operational aspects of running MCP servers in enterprise environments.
 
-Most MCP Servers offer a range of tools - sometimes you don't want to allow using all of them. Using the `MCPServer` resource it's easy to configure that by specifying an allow list of allowed tools.
+You will learn how to:
+
+* *Restrict tool access* using allowlists to implement least-privilege access control
+* *Enable observability* by integrating MCP servers with Prometheus and your monitoring stack
+* *Deploy additional MCP servers* to extend AI capabilities
+* *Understand the architecture* including ToolHive, transports, authentication, and the emerging MCP registry ecosystem
+
+== Tool Filtering: Implementing Least Privilege
+
+=== Why Tool Filtering Matters
+
+The OpenShift MCP Server you used in Module 1 exposes 23 tools — including `pods_delete`, `resources_delete`, and `pods_exec`. While these are useful for troubleshooting, they represent significant risk if an AI agent (or a malicious prompt injection attack) decides to use them inappropriately.
+
+Consider the business implications:
+
+*Operational Risk*:: An AI agent with unrestricted access could accidentally delete production pods, scale deployments to zero, or execute arbitrary commands in containers. Even well-intentioned prompts can have unintended consequences.
+
+*Compliance Requirements*:: Regulations like SOC 2, HIPAA, and PCI-DSS require access controls on automated systems. Auditors will ask: "What prevents your AI from modifying production resources?" You need a concrete answer.
+
+*Attack Surface*:: Prompt injection attacks are a known vulnerability in AI systems. An attacker who can influence the AI's prompts might be able to trick it into calling destructive tools. Limiting available tools reduces the blast radius.
+
+*Principle of Least Privilege*:: Just like human users, AI agents should have only the permissions they need. The pipeline failure agent only needs to read logs and list resources — it doesn't need delete capabilities.
+
+=== Understanding the GitOps Workflow
+
+Before we make changes to the MCP server configuration, it's important to understand how this environment is managed. This lab uses *GitOps* — a modern approach to infrastructure and application management where Git serves as the single source of truth for your desired system state.
+
+==== What is GitOps?
+
+GitOps is an operational framework that applies DevOps best practices — version control, collaboration, compliance, and CI/CD — to infrastructure automation. The core principle is simple: instead of manually running commands to configure systems, you declare your desired state in Git, and automation ensures the actual system matches that declaration.
+
+The benefits are significant:
+
+* *Auditability*: Every change is a Git commit with a timestamp, author, and message. You always know who changed what and when.
+* *Reproducibility*: The entire system state is captured in version-controlled files. You can recreate environments exactly.
+* *Rollback*: Made a mistake? `git revert` restores the previous state, and the automation applies it.
+* *Collaboration*: Use pull requests, code review, and approval workflows for infrastructure changes, just like application code.
+
+==== OpenShift GitOps (ArgoCD)
+
+This lab environment is managed by *OpenShift GitOps*, Red Hat's supported distribution of ArgoCD. ArgoCD is a declarative, GitOps continuous delivery tool for Kubernetes. Here's how it works:
+
+. *ArgoCD monitors your Git repository* — In this case, your personal `{user}/mcp` repository in Gitea.
+
+. *ArgoCD compares desired state to actual state* — It continuously compares the Kubernetes manifests in Git against what's actually running in the cluster.
+
+. *ArgoCD reconciles differences* — When it detects a drift (the cluster doesn't match Git), it automatically applies the changes to bring the cluster back in sync.
+
+. *Sync happens automatically* — ArgoCD polls your repository approximately every 30 seconds. When you commit a change, you'll typically see it reflected in the cluster within a minute.
+
+==== Your Gitea Repository Structure
+
+Your `{user}/mcp` repository contains everything needed to run the lab environment. Let's understand its structure:
+
+[source]
+----
+{user}/mcp/
+├── helm/
+│   ├── mcp-openshift/          # OpenShift MCP Server
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   └── templates/
+│   │       └── mcpserver.yaml  # MCPServer custom resource
+│   │
+│   ├── mcp-gitea/              # Gitea MCP Server
+│   │   ├── Chart.yaml
+│   │   ├── values.yaml
+│   │   └── templates/
+│   │       └── mcpserver.yaml
+│   │
+│   └── agent/                  # Pipeline failure agent
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       └── templates/
+│           └── deployment.yaml
+│
+└── agent/                      # Agent source code
+    ├── main.py
+    ├── requirements.txt
+    └── Containerfile
+----
+
+Each component is packaged as a Helm chart. Helm is a package manager for Kubernetes that uses templates to generate Kubernetes manifests. The `values.yaml` file contains configuration, and the `templates/` directory contains the actual Kubernetes resource definitions.
+
+==== The Workflow You'll Use
+
+Throughout this module, you'll make changes using this workflow:
+
+. *Navigate to the file in Gitea* — Use the Gitea web interface to browse to the file you want to modify.
+
+. *Edit the file* — Click the edit button (pencil icon) to modify the file directly in the browser. Alternatively, you could clone the repo and use your favorite editor.
+
+. *Commit the change* — Save your changes with a meaningful commit message. This creates a new Git commit.
+
+. *Wait for sync* — ArgoCD detects the new commit within ~30 seconds and begins applying changes.
+
+. *Verify in OpenShift* — Check the OpenShift console to confirm your changes took effect.
+
+This workflow means you never need to run `kubectl apply` or `oc apply` commands directly. Everything flows through Git, giving you a complete audit trail of all changes to your MCP infrastructure.
+
+==== Why GitOps for MCP?
+
+GitOps is particularly valuable for MCP server management:
+
+*Configuration as Code*:: Your MCP server configurations — which tools are allowed, what credentials are used, what telemetry is enabled — are all captured in version-controlled files. This documentation-as-code approach means your infrastructure is self-documenting.
+
+*Safe Experimentation*:: Want to try a new tool filter configuration? Make the change, test it, and if it doesn't work, revert the commit. The previous configuration is automatically restored.
+
+*Multi-Environment Consistency*:: The same Git repository structure can deploy to development, staging, and production clusters. Environment-specific values go in different `values.yaml` files; the templates remain the same.
+
+*Compliance and Governance*:: For regulated environments, having a complete Git history of all MCP configuration changes helps demonstrate compliance. Auditors can see exactly what was running at any point in time.
+
+Now that you understand how changes flow from Git to the cluster, let's create a tool filter configuration.
+
+=== Hands-On: Creating a Tool Filter
+
+ToolHive provides the `MCPToolConfig` custom resource for declarative tool filtering. You define which tools are permitted, and the ToolHive proxy enforces these restrictions at the protocol level — the AI never even sees the filtered tools in its `tools/list` response.
 
 . In Gitea navigate to `{user}/mcp/helm/mcp-openshift/templates` and create a new file `mcptoolconfig.yaml`:
 +
@@ -65,11 +181,38 @@ You should see that the request got cancelled. If you click the twistie you can 
 Error processing tool: [MCP][openshift][pods_delete] tool call failed: Error POSTing to endpoint (HTTP 400):
 ----
 
-== Telemetry
+== Telemetry: Observability for AI Operations
 
-. Adding metrics to MCP Servers to expose via the built in monitoring stack.
-+
-Edit the file `mcpserver.yaml` to include this under `spec:`:
+=== Why MCP Observability Matters
+
+When AI agents interact with your systems through MCP, you need visibility into what's happening. Without observability, MCP servers are black boxes — you can't answer basic operational questions:
+
+* How many AI requests are hitting your MCP servers?
+* Which tools are being called most frequently?
+* Are there error spikes that indicate problems?
+* Is usage growing in ways that require capacity planning?
+
+*Incident Response*:: When something goes wrong, you need audit trails. If an AI agent makes an unexpected change, you need to trace back: which tool was called, with what parameters, at what time? Prometheus metrics provide the foundation for this investigation.
+
+*Capacity Planning*:: MCP servers consume resources — CPU, memory, network connections. Understanding usage patterns helps you right-size deployments and plan for growth. If your AI adoption is successful, MCP traffic will increase.
+
+*SLO/SLA Management*:: If you're offering AI-assisted tools to your organization, you need to track availability and performance. Prometheus metrics enable you to define SLOs (Service Level Objectives) and alert when they're at risk.
+
+*Security Monitoring*:: Unusual patterns in MCP usage might indicate compromise or abuse. A sudden spike in `pods_delete` calls, even if they're failing due to tool filtering, could indicate an attempted attack.
+
+=== Available Metrics
+
+ToolHive exposes several Prometheus metrics for MCP servers:
+
+* `toolhive_mcp_active_connections` — Current number of active MCP client connections
+* `toolhive_mcp_requests_total` — Total number of MCP requests processed (with labels for tool name, status)
+* `toolhive_mcp_request_duration_seconds` — Histogram of request processing times
+
+These metrics integrate with OpenShift's built-in monitoring stack, allowing you to create dashboards, alerts, and use the same observability tools you use for other workloads.
+
+=== Hands-On: Enabling Prometheus Metrics
+
+. Edit the file `mcpserver.yaml` to include this under `spec:`:
 +
 [source,yaml,role=execute]
 ----
@@ -84,6 +227,50 @@ Edit the file `mcpserver.yaml` to include this under `spec:`:
 ----
 curl https://mcp-openshift-mcp-openshift-{user}.{openshift_cluster_ingress_domain}/metrics
 ----
++
+You should see Prometheus-formatted metrics output. This confirms the MCP server is exposing metrics, but Prometheus isn't collecting them yet.
+
+=== Understanding ServiceMonitor
+
+At this point, your MCP server is exposing metrics on its `/metrics` endpoint, but OpenShift's Prometheus instance doesn't know about it. This is where the *ServiceMonitor* comes in.
+
+==== How Prometheus Discovers Targets
+
+Prometheus uses a pull-based model for metrics collection. Instead of applications pushing metrics to Prometheus, Prometheus reaches out to applications and "scrapes" their metrics endpoints at regular intervals. But how does Prometheus know which endpoints to scrape?
+
+In traditional Prometheus deployments, you would manually configure scrape targets in a configuration file. This doesn't scale well in dynamic Kubernetes environments where pods come and go constantly.
+
+==== The ServiceMonitor Custom Resource
+
+The *Prometheus Operator* (which powers OpenShift's monitoring stack) solves this with the `ServiceMonitor` custom resource. A ServiceMonitor tells Prometheus:
+
+* *Which Services to scrape* — Using label selectors to match Kubernetes Services
+* *Which port to use* — The named port on the Service that exposes metrics
+* *The metrics path* — Usually `/metrics`, but configurable
+* *Scrape interval* — How often to collect metrics (e.g., every 30 seconds)
+* *Additional configuration* — Authentication, TLS settings, relabeling rules
+
+When you create a ServiceMonitor, the Prometheus Operator automatically updates Prometheus's configuration to include the new scrape target. When you delete the ServiceMonitor, Prometheus stops scraping that target. This dynamic discovery is essential for Kubernetes-native observability.
+
+==== How It Works in This Lab
+
+Here's the flow for MCP server metrics:
+
+. *ToolHive creates a Service* — When you deploy an MCPServer with telemetry enabled, ToolHive creates a Kubernetes Service that exposes the metrics endpoint.
+
+. *You create a ServiceMonitor* — The ServiceMonitor uses label selectors to find the ToolHive-created Service.
+
+. *Prometheus Operator detects the ServiceMonitor* — The operator watches for ServiceMonitor resources in namespaces it's configured to monitor.
+
+. *Prometheus configuration is updated* — The operator generates a new Prometheus configuration that includes your MCP server as a scrape target.
+
+. *Prometheus begins scraping* — Every 30 seconds (or whatever interval you specify), Prometheus fetches metrics from your MCP server.
+
+. *Metrics become queryable* — You can now query MCP metrics in the OpenShift Console's Observe → Metrics interface, create dashboards, and set up alerts.
+
+==== The ServiceMonitor Manifest Explained
+
+Let's create the ServiceMonitor and understand each part:
 
 . Create a new file `servicemonitor.yaml`:
 +
@@ -116,47 +303,244 @@ spec:
 . Switch to the `mcp-openshift-{user}` project.
 . In the OpenShift Console navigate to Observe -> Metrics and query for `toolhive_mcp_active_connections` or `toolhive_mcp_requests_total`.
 
+== Adding a Simple MCP Server: Time Service
 
+=== Extending AI Capabilities
 
-== Deep dive on MCP
+One of MCP's strengths is the growing ecosystem of MCP servers. Adding new capabilities to your AI agents is often as simple as deploying another MCP server. In this section, you'll deploy a simple Time MCP server to demonstrate the process.
 
-Exact scenario TBD
+The Time MCP server provides tools for:
 
-* Explain ToolHive
-* Explain how the MCP Servers got deployed
-* Explain MCP Server transports and the proxy approach from ToolHive
-* Explain RBAC (for OpenShift MCP Server) and authentication (token) for the Gitea MCP Server
-* Explain - and maybe show - how to limit the tools that each MCP Server is allowed to use. For example restrict any "write" tool, redeploy the MCP Server (change the Gitea Repo - Gitops will do that automatically) - and then try in LibreChat to ask the LLM for a write operation which should fail.
- 
-Maybe add
+* Getting the current time in any timezone
+* Converting times between timezones
+* Formatting dates and times
 
-* Explain the concept of an MCP Registry
-* Deploy an MCP Registry
-* Register the two MCP Servers in the Registry
-* Change the deployment to deploy from the registry instead of from the container image
-* Image signing?
-* Authentication (Oauth - ask Andrew Block)
+While simple, this demonstrates the pattern for adding any MCP server to your environment. The same process applies whether you're adding a Slack notification server, a database query server, or a custom internal tool.
 
-From Daniele Martinoli:
+=== Business Value of Standardized Time Handling
 
-====
-Regarding your request for advanced operator functions, the lack of a consistent UI is a challenge, but here are some ideas.
+Even a "simple" capability like time handling has business value:
 
-Server Lifecycle
+* *Distributed Teams*: AI agents can provide timezone-aware responses ("Schedule this for 9 AM in Tokyo, which is 5 PM Pacific")
+* *Audit Consistency*: All AI-generated timestamps use consistent formatting
+* *Compliance*: Financial and regulatory systems often require specific timestamp formats
 
-* Advanced Settings: Mention configurations like tool filtering, name overriding, and OIDC/token exchange. Note these should eventually be managed by the MCP gateway on RH platforms.
-* Stdio Transport Conversion: Highlight the automatic conversion of stdio transport protocols to streamable HTTP.
-* Observability: Demonstrate observability features (See https://dev.to/stacklok/from-black-box-to-observable-deploying-toolhive-with-otel-prometheus-in-kubernetes-lhg[article reference]).
-* Upcoming Demo: @Roddie Kieley is preparing a demo for the OpenShift Applied AI WG next Wednesday, which might offer further ideas.
+=== Deploying the Time MCP Server
 
-MCP Registry
+. In Gitea, navigate to `{user}/mcp/helm` and create a new directory `mcp-time`.
 
-* Static Catalog & MCPRegistry Deployment: We can try generating a JSON for a static catalog of your servers. You can then deploy the corresponding MCPRegistry (requires a Postgres DB) to advertise these servers via https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[standard API]. I can share manifests if needed.
-* Dynamic Registration Flow: Showcase this flow: 1. Deploy an MCPServer (with annotations). 2. Query the registry for available MCP endpoints (should show the new server). 3. Connect the agent to the new endpoint.
-* UI Workaround: A Notebook could be used to demonstrate the server list since a dedicated UI is missing.
+. Create a file `mcp-time/Chart.yaml`:
++
+[source,yaml,role=execute]
+----
+apiVersion: v2
+name: mcp-time
+description: Time MCP Server
+version: 0.1.0
+----
 
-Image Signing and Verification
+. Create a file `mcp-time/values.yaml`:
++
+[source,yaml,role=execute]
+----
+namespace: mcp-time-{user}
+----
 
-* Provenance Information: Mention that the registry models provenance fields, but currently doesn't verify the running server uses the signed image version. This info is available for future use.
-* Future Verification Support: The https://docs.google.com/document/d/1g2lWdVNjnOk0K56Zj1zZ3BJaOAHOH1FaegRxpFgdcV4/edit?pli=1&tab=t.0#heading=h.rcukcjg8j01s[Toolhive-Registry-Server] document proposes "Support for enforcing provenance verification (enable/disable)" in the next version. If you have any proposal for other relevant features, please send to me, as the document is closed for comments.
-====
+. Create `mcp-time/templates/mcpserver.yaml`:
++
+[source,yaml,role=execute]
+----
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: time
+  namespace: {{ .Values.namespace }}
+spec:
+  image: ghcr.io/modelcontextprotocol/time:latest
+  transport: stdio
+  telemetry:
+    prometheus:
+      enabled: true
+----
+
+. Commit all files.
+
+. Add the new Helm chart to your ArgoCD Application or wait for GitOps to sync.
+
+. Once deployed, add the Time MCP server to LibreChat and test it:
++
+[source,role=execute]
+----
+What time is it in Tokyo right now?
+----
+
+== Deep Dive: Understanding MCP Architecture
+
+This section provides a deeper understanding of the MCP ecosystem, from the ToolHive operator that manages server lifecycles to emerging standards like MCP registries and OAuth authentication.
+
+=== Understanding ToolHive
+
+ToolHive is a Kubernetes operator developed by Stacklok that manages the lifecycle of MCP servers in containerized environments. It solves a fundamental problem: most MCP servers were designed for desktop use with stdio (standard input/output) communication, but Kubernetes workloads need network-accessible services.
+
+*What ToolHive Provides:*
+
+* *MCPServer Custom Resource*: A Kubernetes-native way to declare MCP servers. You specify the container image and configuration; ToolHive handles the rest.
+
+* *Automatic Proxy Injection*: ToolHive wraps stdio-based MCP servers with an HTTP proxy, making them accessible over the network without modifying the original server code.
+
+* *Tool Filtering*: The `MCPToolConfig` resource lets you restrict which tools are exposed, implementing least-privilege access control.
+
+* *Telemetry Integration*: Built-in Prometheus metrics export for observability.
+
+* *Transport Abstraction*: Whether the underlying server uses stdio, SSE, or streamable HTTP, ToolHive presents a consistent interface to clients.
+
+=== How MCP Servers Get Deployed
+
+When you create an `MCPServer` custom resource, ToolHive's controller performs the following:
+
+. *Validates the specification* — Checks that the image exists, transport is valid, and configuration is complete.
+
+. *Creates a Deployment* — Runs the MCP server container with the ToolHive proxy sidecar.
+
+. *Creates a Service* — Exposes the MCP server within the cluster on a predictable hostname.
+
+. *Optionally creates a Route/Ingress* — For external access (used by LibreChat in this lab).
+
+. *Applies tool filtering* — If an `MCPToolConfig` is referenced, configures the proxy to filter tools.
+
+. *Configures telemetry* — Sets up Prometheus metrics endpoints if enabled.
+
+In this lab, GitOps (OpenShift GitOps/ArgoCD) automates the deployment. When you commit changes to your Gitea repository, ArgoCD detects the change and applies the updated manifests to the cluster. This typically happens within 30 seconds.
+
+=== MCP Transport Protocols
+
+MCP supports several transport mechanisms, each with different trade-offs:
+
+*stdio (Standard I/O)*::
+The original MCP transport, designed for local process communication. The MCP client spawns the server as a subprocess and communicates via stdin/stdout. This is simple and efficient for desktop applications but doesn't work in networked environments.
++
+Most community MCP servers use stdio because it's the easiest to implement. ToolHive's proxy converts stdio servers to network-accessible services.
+
+*SSE (Server-Sent Events)*::
+A unidirectional streaming protocol built on HTTP. The client opens a long-lived HTTP connection, and the server pushes events as they occur. Used by the OpenShift MCP Server in this lab.
++
+SSE is widely supported and works through most proxies and firewalls. However, it's unidirectional — the client can only send data through separate HTTP requests.
+
+*Streamable HTTP*::
+A bidirectional HTTP-based transport that supports true request/response patterns. Used by the Gitea MCP Server in this lab.
++
+This is the most flexible transport, supporting all MCP features including streaming responses and bidirectional communication.
+
+*The ToolHive Proxy Approach*::
+ToolHive runs a proxy sidecar alongside each MCP server container. For stdio servers, this proxy:
++
+. Spawns the MCP server process
+. Reads JSON-RPC messages from the server's stdout
+. Exposes these over HTTP (SSE or streamable HTTP)
+. Translates incoming HTTP requests to stdin writes
++
+This means you can use any existing MCP server — even one designed for Claude Desktop — in a Kubernetes environment without modification.
+
+=== RBAC and Authentication
+
+MCP servers need credentials to access the systems they interact with. This lab demonstrates two common patterns:
+
+*OpenShift MCP Server: Kubernetes RBAC*::
+The OpenShift MCP Server runs with a Kubernetes service account. This service account has specific RBAC (Role-Based Access Control) bindings that determine what resources it can access.
++
+In this lab, the service account has permissions scoped to specific namespaces. If you tried to use the MCP server to access resources in a namespace it's not authorized for, the Kubernetes API would reject the request.
++
+This is a powerful pattern because it uses Kubernetes' native security model. You manage AI agent permissions the same way you manage any other workload's permissions.
+
+*Gitea MCP Server: Token Authentication*::
+The Gitea MCP Server authenticates to the Gitea API using a personal access token. This token is stored as a Kubernetes Secret and mounted into the MCP server container.
++
+The token's scope determines what the MCP server can do. A token with read-only repository access would limit the server to read operations, even if the MCP server code supports writes.
+
+*Best Practices for Credential Management:*
+
+* Store credentials in Kubernetes Secrets, never in ConfigMaps or environment variables in plain text
+* Use the most restrictive scope possible for tokens
+* Rotate credentials regularly
+* Consider using short-lived tokens where possible
+* Audit credential access through Kubernetes audit logging
+
+=== MCP Registry: Centralized Server Discovery
+
+As organizations deploy more MCP servers, they face discovery and governance challenges:
+
+* How do developers know what MCP servers are available?
+* How do administrators control which servers are approved for use?
+* How do you track versions and ensure consistency?
+
+The *MCP Registry* specification addresses these needs. A registry provides:
+
+*Server Catalog*:: A searchable index of available MCP servers with metadata including name, description, capabilities, and connection information.
+
+*Version Management*:: Track different versions of MCP servers and their compatibility requirements.
+
+*Governance Controls*:: Administrators can mark servers as approved, deprecated, or restricted.
+
+*Discovery API*:: A standardized API that tools can use to find and connect to MCP servers programmatically.
+
+Organizations can run private registries to catalog their internal MCP servers. The registry API follows a https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[standard specification], enabling tool interoperability.
+
+Future versions of ToolHive will integrate with registries to enable automatic server discovery — you'll be able to browse available servers and deploy them directly from the registry.
+
+=== Image Signing and Provenance
+
+Supply chain security is critical for MCP servers. When you deploy an MCP server, you're giving it access to your systems. How do you know the container image hasn't been tampered with?
+
+*Container Image Signing*::
+Tools like https://www.sigstore.dev/[Sigstore] and `cosign` enable cryptographic signing of container images. Publishers sign images with their private key; consumers verify signatures before deployment.
++
+For MCP servers, this means you can verify that:
++
+* The image was built by a trusted publisher
+* The image hasn't been modified since signing
+* The image matches the expected content hash
+
+*Provenance Tracking*::
+The MCP Registry specification includes fields for provenance information:
++
+* Build timestamp
+* Source repository and commit
+* Builder identity
+* Signature verification status
++
+This information helps organizations make informed decisions about which MCP servers to trust.
+
+*Future Enforcement*::
+While current tools support signing and provenance tracking, enforcement is still evolving. Future versions of ToolHive may support policies like "only deploy MCP servers with valid signatures from approved publishers."
+
+=== OAuth/OIDC Authentication: The Future Direction
+
+Current MCP deployments typically use static tokens for authentication. This works but has limitations:
+
+* Tokens are long-lived, increasing exposure if compromised
+* No connection to enterprise identity providers
+* Difficult to implement per-user access control
+
+The MCP community is developing OAuth 2.0 and OpenID Connect (OIDC) support to address these limitations:
+
+*OAuth 2.0 Integration*::
+MCP servers will be able to participate in OAuth flows, obtaining short-lived access tokens that can be refreshed. This enables:
++
+* Integration with enterprise identity providers (Okta, Azure AD, Keycloak)
+* Fine-grained, time-limited access
+* Token revocation when access should be terminated
+
+*Identity Propagation*::
+When an AI agent calls a tool on behalf of a user, the user's identity can flow through the entire call chain. The backend system knows not just that "an AI called this tool" but "Alice's AI assistant called this tool on her behalf."
++
+This enables:
++
+* Per-user audit trails
+* User-specific access control (Alice can access her repositories, not Bob's)
+* Compliance with data access regulations
+
+*Enterprise SSO*::
+With OIDC support, organizations can require that MCP access go through their SSO system. Users authenticate once, and their AI tools inherit that authentication.
+
+These capabilities are still being standardized, but the November 2025 MCP specification update included significant progress on enterprise authorization patterns.
