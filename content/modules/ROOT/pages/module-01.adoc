@@ -23,8 +23,11 @@ Your user's password is the same for all applications.
 . On the right panel switch to the *LibreChat* tab.
 . Log in using your LibreChat user: `{librechat_user}` with password `{librechat_password}`
 . Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
-. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo). If the servers are not initialized the LLM can't use them.
-. The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both of them.
+. There are two pre-deployed *MCP Servers* in your environment. One to interact with *OpenShift* and one to interact with *Gitea*.
+.. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers.
+.. Note that there are two additional MCP Servers defined: `fetch` and `yardstick` - you will deploy those much later in the lab. Do not activate those.
+.. For the two that we are activating, if you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo). If the servers are not initialized the LLM can't use them.
+. The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both predeployed MCP Servers.
 
 [NOTE]
 ====
