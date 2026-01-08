@@ -113,10 +113,6 @@ This democratizes DevOps knowledge across the organization. Junior developers ca
 Consider the ROI: if a junior developer can now resolve issues in 15 minutes that previously required escalating to a senior engineer (who might not be available for hours), the productivity gains compound rapidly across an organization.
 
 . On the right switch to *LibreChat*.
-. Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
-. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo)
-. The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both of them.
-
 . Start by asking the LLM about your Gitea user and your repositories:
 +
 [source,role="execute"]

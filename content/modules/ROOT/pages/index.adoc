@@ -164,32 +164,3 @@ For those interested in the implementation details:
 *Message Format*:: MCP uses JSON-RPC 2.0 for message encoding. Each tool call is a JSON-RPC request; the response contains the tool's output or an error.
 
 *ToolHive Proxy Architecture*:: In Kubernetes environments, ToolHive provides a proxy layer that converts between transport protocols. Many MCP servers are written to use stdio (standard input/output), which doesn't work directly in container environments. ToolHive automatically wraps these servers with an HTTP interface, making them accessible to network-based clients.
-
-== Lab Setup
-
-Your environment has already been pre-configured for you.
-
-Your Showroom is split into two parts. You are reading these instructions on the left.
-On the right hand side you see three tabs. On each tab log into the application to prepare for the demo/lab.
-
-[HINT]
-====
-Your user's password is the same everywhere.
-====
-
-=== OpenShift Console
-
-. On the right panel switch to the *OpenShift Console* tab if it's not already selected.
-. Log in using user `{user}` and password `{password}`
-. Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
-
-=== LibreChat
-
-. On the right panel switch to the *LibreChat* tab.
-. Log in using your LibreChat user: `{librechat_user}` with password `{librechat_password}`
-
-=== Gitea
-
-. On the right panel switch to the *Gitea* tab.
-. Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
-. Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.

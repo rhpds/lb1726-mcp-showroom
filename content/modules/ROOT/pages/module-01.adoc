@@ -9,7 +9,7 @@ On the right hand side you see three tabs. On each tab log into the application 
 
 [HINT]
 ====
-Your user's password is the same everywhere.
+Your user's password is the same for all applications.
 ====
 
 === OpenShift Console
@@ -22,9 +22,50 @@ Your user's password is the same everywhere.
 
 . On the right panel switch to the *LibreChat* tab.
 . Log in using your LibreChat user: `{librechat_user}` with password `{librechat_password}`
+. Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
+. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo). If the servers are not initialized the LLM can't use them.
+. The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both of them.
+
+[NOTE]
+====
+If you had to *initialize* the MCP Servers that means that the agent pod was not able to initialize the server connection either. This can happen if the environment had been stopped between the time of deployment and when you are using this environment.
+
+To fix this Switch to the *OpenShift Console*, find the `agent-{user}` namespace and delete the pod that is running in there (starting with `agent`). This will re-initialize the LLM and MCP Server connection.
+
+You can double check the logs of the new pod where you should see that both MCP Servers have been connected successfully:
+
+[source]
+----
+INFO: Started server process [1]
+INFO: Waiting for application startup.
+============================================================
+🚀 Pipeline Failure Agent - Starting up
+============================================================
+📋 Loading MCP configuration from environment...
+OpenShift: http://mcp-openshift-proxy.mcp-openshift-user4.svc.cluster.local:8080/sse#openshift (sse)
+Gitea: http://mcp-gitea-proxy.mcp-gitea-user4.svc.cluster.local:8080/mcp (streamable-http)
+🔌 Initializing MCP connections (2 servers)...
+Connecting to openshift (sse)...
+URL: http://mcp-openshift-proxy.mcp-openshift-user4.svc.cluster.local:8080/sse#openshift
+SSE message endpoint: http://mcp-openshift-proxy.mcp-openshift-user4.svc.cluster.local:8080/sse?sessionid=HSUO2GH5V5W22VT4Z3BDARLALT
+SSE init result: {'jsonrpc': '2.0', 'id': 1, 'result': {'capabilities': {'logging': {}, 'prompts': {'listChanged': True}, 'tools': {'listChanged': True}}, 'protocolVersion': '2024-11-05', 'serverInfo': {'name': 'kubernetes-mcp-server', 'title': 'kubernetes-mcp-server', 'version': 'v0.0.56'}}}
+✅ openshift: connected
+Tools (23): ['configuration_view', 'events_list', 'helm_install', 'helm_list', 'helm_uninstall', 'namespaces_list', 'nodes_log', 'nodes_stats_summary', 'nodes_top', 'pods_delete', 'pods_exec', 'pods_get', 'pods_list', 'pods_list_in_namespace', 'pods_log', 'pods_run', 'pods_top', 'projects_list', 'resources_create_or_update', 'resources_delete', 'resources_get', 'resources_list', 'resources_scale']
+Connecting to gitea (streamable-http)...
+URL: http://mcp-gitea-proxy.mcp-gitea-user4.svc.cluster.local:8080/mcp
+✅ gitea: connected
+Tools (106): ['add_issue_labels', 'add_tracked_time', 'cancel_repo_action_run', 'clear_issue_labels', 'create_branch', 'create_file', 'create_issue', 'create_issue_comment', 'create_milestone', 'create_org_action_variable', 'create_org_label', 'create_pull_request', 'create_pull_request_review', 'create_pull_request_reviewer', 'create_release', 'create_repo', 'create_repo_action_variable', 'create_repo_label', 'create_tag', 'create_wiki_page', 'delete_branch', 'delete_file', 'delete_milestone', 'delete_org_action_secret', 'delete_org_action_variable', 'delete_org_label', 'delete_pull_request_review', 'delete_pull_request_reviewer', 'delete_release', 'delete_repo_action_secret', 'delete_repo_action_variable', 'delete_repo_label', 'delete_stopwatch', 'delete_tag', 'delete_tracked_time', 'delete_wiki_page', 'dismiss_pull_request_review', 'dispatch_repo_action_workflow', 'download_repo_action_job_log', 'edit_issue', 'edit_issue_comment', 'edit_milestone', 'edit_org_label', 'edit_repo_label', 'fork_repo',...
+✅ Startup complete - 129 tools available
+============================================================
+INFO: Application startup complete.
+INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+----
+====
 
 === Gitea
 
 . On the right panel switch to the *Gitea* tab.
 . Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
 . Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.
+
+Switch back to the *OpenShift Console* tab to be ready for the demo / lab scenario.
