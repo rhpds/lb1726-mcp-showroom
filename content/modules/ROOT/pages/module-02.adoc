@@ -44,8 +44,8 @@ Tools (23): ['configuration_view', 'events_list', 'helm_install', 'helm_list', '
 Connecting to gitea (streamable-http)...
 URL: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp
 ✅ gitea: connected
-Tools (57): ['add_issue_labels', 'clear_issue_labels', 'create_branch', 'create_file', 'create_issue', 'create_issue_comment', 'create_org_label', 'create_pull_request', 'create_pull_request_reviewer', 'create_release', 'create_repo', 'create_repo_label', 'create_tag', 'create_wiki_page', 'delete_branch', 'delete_file', 'delete_org_label', 'delete_release', 'delete_repo_label', 'delete_tag', 'delete_wiki_page', 'edit_issue', 'edit_issue_comment', 'edit_org_label', 'edit_repo_label', 'fork_repo', 'get_dir_content', 'get_file_content', 'get_gitea_mcp_server_version', 'get_issue_by_index', 'get_issue_comments_by_index', 'get_latest_release', 'get_my_user_info', 'get_pull_request_by_index', 'get_release', 'get_repo_label', 'get_tag', 'get_user_orgs', 'get_wiki_page', 'get_wiki_revisions', 'list_branches', 'list_my_repos', 'list_org_labels', 'list_releases', 'list_repo_commits', 'list_repo_issues', 'list_repo_labels', 'list_repo_pull_requests', 'list_tags', 'list_wiki_pages', 'remove_issue_label', 'replac...
-✅ Startup complete - 80 tools available
+Tools (106): ['add_issue_labels', 'clear_issue_labels', 'create_branch', 'create_file', 'create_issue', 'create_issue_comment', 'create_org_label', 'create_pull_request', 'create_pull_request_reviewer', 'create_release', 'create_repo', 'create_repo_label', 'create_tag', 'create_wiki_page', 'delete_branch', 'delete_file', 'delete_org_label', 'delete_release', 'delete_repo_label', 'delete_tag', 'delete_wiki_page', 'edit_issue', 'edit_issue_comment', 'edit_org_label', 'edit_repo_label', 'fork_repo', 'get_dir_content', 'get_file_content', 'get_gitea_mcp_server_version', 'get_issue_by_index', 'get_issue_comments_by_index', 'get_latest_release', 'get_my_user_info', 'get_pull_request_by_index', 'get_release', 'get_repo_label', 'get_tag', 'get_user_orgs', 'get_wiki_page', 'get_wiki_revisions', 'list_branches', 'list_my_repos', 'list_org_labels', 'list_releases', 'list_repo_commits', 'list_repo_issues', 'list_repo_labels', 'list_repo_pull_requests', 'list_tags', 'list_wiki_pages', 'remove_issue_label', 'replac...
+✅ Startup complete - 129 tools available
 ============================================================
 INFO: Application startup complete.
 INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
@@ -134,19 +134,24 @@ What pods are running in namespasce agent-{user}
 What pods in namespasce agent-{user} are in Error state?
 ----
 
-. Get the full pod logs (replace the pod name with your pod name from the previous output):
+. Get the full pod logs (once in a while you have to ask this question multiple times to get an answer):
 +
 [source,role="execute"]
 ----
 Show me the pod logs for pod build-agent-13ru7o-build-pod.
 ----
 
-. Ask how to fix the issue
+. Ask how to fix the issue:
 +
 [source,role="execute"]
 ----
 How can I fix that issue?
 ----
+
+. Play around some more in the chat.
+.. You could ask LibreChat which tools each of the MCP Servers provides.
+.. You could try to delete some pods in namespace `agent-{user}`. Why can/can't you delete pods in the `agent-{user}` namespace?
+.. Can you delete pods in the `mcp-openshift-{user}` namespace? Why or why not?
 
 === Agent Source Code (optional)
 

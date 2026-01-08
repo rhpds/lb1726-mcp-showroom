@@ -13,7 +13,7 @@ The lab environment includes:
 * A user on a shared *OpenShift* cluster.
 * A user on a shared *Gitea* source code repository.
 * A predeployed *OpenShift MCP Server*: Provides 23 tools for Kubernetes/OpenShift operations (pod management, log retrieval, resource manipulation)
-* A predeployed *Gitea MCP Server*: Provides 57 tools for Git repository operations (issue creation, pull requests, file management)
+* A predeployed *Gitea MCP Server*: Provides 106 tools for Git repository operations (issue creation, pull requests, file management)
 * *ToolHive*: The Kubernetes operator that manages MCP server deployments
 * *LibreChat*: An open-source AI chat interface that supports MCP
 
