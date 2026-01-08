@@ -1,165 +1,30 @@
-= Soverein SRE Agent Demo
+= {lab_name}
 
-== Explore the Environment
+== Lab Setup
 
-CI/CD pipeline failures are inevitable in modern software development, but how organizations respond to them varies dramatically. The traditional approach involves manual log analysis, context-switching between tools, and reliance on tribal knowledge — often resulting in hours of developer time spent on diagnosis before any fix can begin. Studies show that unplanned work like pipeline failures consumes 20-40% of engineering capacity in many organizations.
+Your environment has already been pre-configured for you.
 
-This demo shows a fundamentally different approach: AI-assisted incident response powered by MCP. When a pipeline fails, an autonomous agent immediately investigates the issue, retrieves relevant logs, analyzes the root cause, and creates a structured issue with remediation suggestions — all without human intervention. The key enabler is MCP, which allows the agent to seamlessly interact with both OpenShift (for infrastructure data) and Gitea (for issue tracking) through a standardized protocol.
+Your Showroom is split into two parts. You are reading these instructions on the left.
+On the right hand side you see three tabs. On each tab log into the application to prepare for the demo/lab.
 
-=== Show infrastructure
-
-Before triggering the demo, let's examine the infrastructure. Notice how minimal the configuration is: the agent simply connects to two MCP servers and gains access to 80+ tools spanning container orchestration and source code management. There's no custom API integration code — MCP handles all the connectivity.
-
-. Navigate to the *OpenShift Console* tab on the right.
-. Click on the *agent-{user}* project.
-. Click on *Pipelines*.
-+
-[NOTE]
+[HINT]
 ====
-Depending on the size of your screen you'll have to click the Hamburger menu to show the navigation pane.
+Your user's password is the same everywhere.
 ====
-. Examine the pipeline `build-agent` and notice 3 build steps and a *trigger-agent* (finally) step to always execute (you may need to zoom out or scroll to the right to see all 4 steps)
-. Switch to *YAML* view and examine the *trigger-agent* task under *finally*.
-. Notice the code in the step (lines 54 - 60) - where it checks if any step in the pipeline failed. If a step failed it calls the AI Agent with the namespace and name of the failing pod.
-. Switch to the *PipelineRuns* page.
-. Notice how the pipeline ran once upon environment deployment to build and deploy the agent itself.
-. Switch to the *Topology* view and click on the agent `Deployment`.
-. Next to the pod name click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea. You can also point out the list of tools that each MCP server advertised.
-+
-[source]
-----
-============================================================
-🚀 Pipeline Failure Agent - Starting up
-============================================================
-📋 Loading MCP configuration from environment...
-OpenShift: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse#openshift (sse)
-Gitea: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp (streamable-http)
-🔌 Initializing MCP connections (2 servers)...
-Connecting to openshift (sse)...
-URL: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse#openshift
-SSE message endpoint: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse?sessionid=SWA7CHWWO63ZB7K7YBN6PP4AAL
-SSE init result: {'jsonrpc': '2.0', 'id': 1, 'result': {'capabilities': {'logging': {}, 'tools': {'listChanged': True}}, 'protocolVersion': '2024-11-05', 'serverInfo': {'name': 'kubernetes-mcp-server', 'title': 'kubernetes-mcp-server', 'version': 'v0.0.55'}}}
-✅ openshift: connected
-Tools (23): ['configuration_view', 'events_list', 'helm_install', 'helm_list', 'helm_uninstall', 'namespaces_list', 'nodes_log', 'nodes_stats_summary', 'nodes_top', 'pods_delete', 'pods_exec', 'pods_get', 'pods_list', 'pods_list_in_namespace', 'pods_log', 'pods_run', 'pods_top', 'projects_list', 'resources_create_or_update', 'resources_delete', 'resources_get', 'resources_list', 'resources_scale']
-Connecting to gitea (streamable-http)...
-URL: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp
-✅ gitea: connected
-Tools (57): ['add_issue_labels', 'clear_issue_labels', 'create_branch', 'create_file', 'create_issue', 'create_issue_comment', 'create_org_label', 'create_pull_request', 'create_pull_request_reviewer', 'create_release', 'create_repo', 'create_repo_label', 'create_tag', 'create_wiki_page', 'delete_branch', 'delete_file', 'delete_org_label', 'delete_release', 'delete_repo_label', 'delete_tag', 'delete_wiki_page', 'edit_issue', 'edit_issue_comment', 'edit_org_label', 'edit_repo_label', 'fork_repo', 'get_dir_content', 'get_file_content', 'get_gitea_mcp_server_version', 'get_issue_by_index', 'get_issue_comments_by_index', 'get_latest_release', 'get_my_user_info', 'get_pull_request_by_index', 'get_release', 'get_repo_label', 'get_tag', 'get_user_orgs', 'get_wiki_page', 'get_wiki_revisions', 'list_branches', 'list_my_repos', 'list_org_labels', 'list_releases', 'list_repo_commits', 'list_repo_issues', 'list_repo_labels', 'list_repo_pull_requests', 'list_tags', 'list_wiki_pages', 'remove_issue_label', 'replac...
-✅ Startup complete - 80 tools available
-============================================================
-INFO: Application startup complete.
-INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-----
 
-== Demonstrate how the agent works
+=== OpenShift Console
 
-The key business value of this architecture is *zero-touch incident response*. When a pipeline fails, the agent automatically springs into action — investigating the failure, analyzing logs, and documenting findings. This transforms reactive firefighting into proactive issue management.
+. On the right panel switch to the *OpenShift Console* tab if it's not already selected.
+. Log in using user `{user}` and password `{password}`
+. Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
 
-Consider the traditional workflow: a pipeline fails, someone notices (eventually), they dig through logs, switch context to understand the codebase, and finally create an issue or ping the right person. This process can take 30 minutes to several hours depending on complexity and team availability. With MCP-powered automation, the entire investigation-to-documentation cycle completes in seconds, and developers receive a structured issue with actionable remediation steps the moment they look at their issue tracker.
+=== LibreChat
 
-The business impact is clear: reduced mean-time-to-resolution (MTTR), better documentation of issues, and developers who can focus on fixing problems rather than diagnosing them.
+. On the right panel switch to the *LibreChat* tab.
+. Log in using your LibreChat user: `{librechat_user}` with password `{librechat_password}`
 
-=== Trigger a failing pipeline run
+=== Gitea
 
-. We prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
-. Now we need to trigger the pipeline to attempt to build the agent. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline whenever a new change is pushed.
-. Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}` and are looking at *Pipelines*.
-. Click on the Pipeline *build-agent* to open the pipeline view.
-. Start a new Pipeline run by clicking on *Actions -> Start*
-. Leave all the default parameters - except for the *GIT_REVISION*. Change the git revision (branch) to be used to `broken`.
-. Select `VolumeClaimTemplate` for the *workspace*. Leave all other options as they are.
-. Click *Start* to start the Pipeline run.
-. If you want to, show the pipeline run logs and see it fail. The build step takes quite a long time (few minutes)... until it fails.
-. At a minimum, you would want to show that the second pipeline step (build) failed - and then you would want to show the *trigger-agent* finally task and especially the logs of that task.
-. Note what the *trigger-agent* task passes to the agent: *ONLY* the namespace, pod name and container name. You can explain that the agent uses the OpenShift MCP Server to figure out what failed in that task.
-+
-[source]
-----
-[...]
-+ curl -i -H 'Content-Type: application/json' -X POST -d '{"namespace":"agent-user57","pod_name":"build-agent-mtkhb0-build-pod-retry2","container_name":"step-buildah"}' http://agent.agent-user57.svc:8000/report-failure
-[...]
-{"status":"success","result":"Issue created: {\"Result\":{\"id\":1,\"url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/api/v1/repos/user57/mcp/issues/1\",\"html_url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/user57/mcp/issues/1\",\"number\":1,\"user\":{\"id\":58,\"login\":\"user57\",\"login_name\":\"user57\",\"source_id\":0,\"full_name\":\"\",\"email\":\"user57@opentlc.com\",\"avatar_url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/avatar/843dd77a02def9ebcb459ba9b0c89646\",\"language\":\"en-US\",\"is_admin\":false,\"last_login\":\"2025-12-17T15:45:53Z\",\"created\":\"2025-12-17T14:27:55Z\",\"restricted\":false,\"active\":true,\"prohibit_login\":false,\"location\":\"\",\"website\":\"\",\"description\":\"\",\"visibility\":\"public\",\"followers_count\":0,\"following_count\":0,\"starred_repos_count\":0},\"original_author\":\"\",\"original_author_id\":0,\"title\":\"Issue with Agent pipeline\",\"body\":\"### Cluster/namespace location\\nagent-user57/build-agent-mtkhb0-build-pod-retry2\\n\\n### Summary of the problem\\nThe pod is failing to build the agent image due to a missing `requirements.txt` file.\\n\\n### Detailed error/code\\nError: building at STEP \\\"COPY requirements.txt .\\\": checking on sources under \\\"/workspace/source/agent\\\": copier: stat: \\\"/requirements.txt\\\": no such file or directory\\n\\n### Possible solutions\\n1. Verify that a `requirements.txt` file exists in the `/workspace/source/agent` directory.\\n2. Update the `Containerfile` to reference the correct location of the `requirements.txt` file if it exists in a different directory.\",\"ref\":\"\",\"labels\":[],\"milestone\":null,\"assignees\":null,\"state\":\"open\",\"is_locked\":false,\"comments\":0,\"created_at\":\"2025-12-17T15:58:55Z\",\"updated_at\":\"2025-12-17T15:58:55Z\",\"closed_at\":null,\"due_date\":null,\"pull_request\":null,\"repository\":{\"id\":57,\"name\":\"mcp\",\"owner\":\"user57\",\"full_name\":\"user57/mcp\"}}}"}
-----
-
-=== Show what the agent did
-
-One of the most valuable aspects of AI-generated issues is *consistency*. Human-written bug reports vary wildly in quality — some include all the relevant context, others are terse "it's broken" messages. The AI agent produces structured, comprehensive issues every time: location, summary, detailed error, and suggested remediation steps.
-
-This consistency pays dividends over time. Issues become searchable knowledge bases, patterns emerge across failures, and new team members can understand problems without institutional knowledge. The same MCP-based pattern extends to other notification channels — Slack, PagerDuty, email, or any system with an MCP server — enabling organizations to route issues to the right channels automatically.
-
-. Switch back to *Topology* and click on the agent `Deployment`.
-. Next to the pod name click on *View logs* to show the pod logs
-. Show the pod logs and point out what the agent did. The interesting bit starts with
-+
-[source,sh,role=execute,subs=attributes]
-====
-============================================================
-📥 Received failure report
-============================================================
-====
-+
-In *Iteration 1* the agent gets the pod logs from OpenShift while in *Iteration 2* the agent opens a new issue in Gitea.
-. Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
-
-. Switch to the *Gitea* tab and open the *Issues* link under your *{user}/mcp* repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
-. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP Servers available to all kinds of scenarios.
-
-=== Investigating the issue
-
-Beyond automated agents, MCP enables something equally powerful: *natural language infrastructure queries*. Instead of memorizing kubectl commands, oc syntax, or git CLI options, developers and operators can simply ask questions in plain English.
-
-This democratizes DevOps knowledge across the organization. Junior developers can diagnose issues that previously required senior engineer intervention. Platform teams can focus on building and improving infrastructure rather than answering "how do I check the logs for pod X?" questions. The barrier to entry for troubleshooting drops dramatically.
-
-Consider the ROI: if a junior developer can now resolve issues in 15 minutes that previously required escalating to a senior engineer (who might not be available for hours), the productivity gains compound rapidly across an organization.
-
-. On the right switch to *LibreChat*.
-. Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
-. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo)
-. The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both of them.
-
-. Start by asking the LLM about your Gitea user and your repositories:
-+
-[source,role="execute"]
-----
-Tell me about my Gitea user and all repositories that I own.
-----
-
-. Get a list of all pods in the `agent-{user}` namespace (sometimes you need to ask twice):
-+
-[source,role="execute",subs=attributes]
-----
-What pods are running in namespasce agent-{user}
-----
-
-. Ask for pods in `Error` state (note that it remembers the namespace from the previous command):
-+
-[source,role="execute",subs=attributes]
-----
-What pods in namespasce agent-{user} are in Error state?
-----
-
-. Get the full pod logs (replace the pod name with your pod name from the previous output):
-+
-[source,role="execute"]
-----
-Show me the pod logs for pod build-agent-13ru7o-build-pod.
-----
-
-. Ask how to fix the issue
-+
-[source,role="execute"]
-----
-How can I fix that issue?
-----
-
-=== Agent Source Code (optional)
-
-Looking at the agent's source code reveals an important business insight: the code is remarkably simple. The agent doesn't contain complex API integration logic for OpenShift or Gitea — MCP handles all of that. The agent focuses purely on the business logic: "when a failure is reported, investigate it and create an issue."
-
-This separation of concerns means organizations can build sophisticated AI-powered automation without deep expertise in every system they integrate with. The same pattern applies to other use cases: security scanning agents, compliance checkers, automated code reviewers — any scenario where you want AI to interact with enterprise systems.
-
-. In the panel on the right switch to the *Gitea* tab.
-. Navigate to the your user's `mcp` repository if you aren't already there.
-. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
-. You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
-. Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP Servers. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.
+. On the right panel switch to the *Gitea* tab.
+. Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
+. Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.

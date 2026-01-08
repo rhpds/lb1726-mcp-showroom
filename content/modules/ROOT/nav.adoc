@@ -1,2 +1,3 @@
-* xref:module-01.adoc[Soverein SRE Agent Demo]
-* xref:module-02.adoc[MCP Server Administration]
+* xref:module-01.adoc[Lab Setup]
+* xref:module-02.adoc[Soverein SRE Agent Demo]
+* xref:module-03.adoc[MCP Server Administration]

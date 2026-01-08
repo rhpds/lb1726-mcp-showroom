@@ -1,546 +1,165 @@
-= MCP Server Management
+= Soverein SRE Agent Demo
 
-In Module 1, you experienced MCP in action — an autonomous agent diagnosing pipeline failures and creating issues, plus interactive infrastructure queries through LibreChat. The MCP servers in that demo were pre-configured for ease of use, with all tools enabled and minimal security constraints.
+== Explore the Environment
 
-Production deployments require a different approach. When AI agents can interact with your infrastructure, you need the same rigor you apply to any other privileged access: principle of least privilege, comprehensive audit trails, and observability into what's happening. This module covers the operational aspects of running MCP servers in enterprise environments.
+CI/CD pipeline failures are inevitable in modern software development, but how organizations respond to them varies dramatically. The traditional approach involves manual log analysis, context-switching between tools, and reliance on tribal knowledge — often resulting in hours of developer time spent on diagnosis before any fix can begin. Studies show that unplanned work like pipeline failures consumes 20-40% of engineering capacity in many organizations.
 
-You will learn how to:
+This demo shows a fundamentally different approach: AI-assisted incident response powered by MCP. When a pipeline fails, an autonomous agent immediately investigates the issue, retrieves relevant logs, analyzes the root cause, and creates a structured issue with remediation suggestions — all without human intervention. The key enabler is MCP, which allows the agent to seamlessly interact with both OpenShift (for infrastructure data) and Gitea (for issue tracking) through a standardized protocol.
 
-* *Restrict tool access* using allowlists to implement least-privilege access control
-* *Enable observability* by integrating MCP servers with Prometheus and your monitoring stack
-* *Deploy additional MCP servers* to extend AI capabilities
-* *Understand the architecture* including ToolHive, transports, authentication, and the emerging MCP registry ecosystem
+=== Show infrastructure
 
-== Tool Filtering: Implementing Least Privilege
+Before triggering the demo, let's examine the infrastructure. Notice how minimal the configuration is: the agent simply connects to two MCP servers and gains access to 80+ tools spanning container orchestration and source code management. There's no custom API integration code — MCP handles all the connectivity.
 
-=== Why Tool Filtering Matters
-
-The OpenShift MCP Server you used in Module 1 exposes 23 tools — including `pods_delete`, `resources_delete`, and `pods_exec`. While these are useful for troubleshooting, they represent significant risk if an AI agent (or a malicious prompt injection attack) decides to use them inappropriately.
-
-Consider the business implications:
-
-*Operational Risk*:: An AI agent with unrestricted access could accidentally delete production pods, scale deployments to zero, or execute arbitrary commands in containers. Even well-intentioned prompts can have unintended consequences.
-
-*Compliance Requirements*:: Regulations like SOC 2, HIPAA, and PCI-DSS require access controls on automated systems. Auditors will ask: "What prevents your AI from modifying production resources?" You need a concrete answer.
-
-*Attack Surface*:: Prompt injection attacks are a known vulnerability in AI systems. An attacker who can influence the AI's prompts might be able to trick it into calling destructive tools. Limiting available tools reduces the blast radius.
-
-*Principle of Least Privilege*:: Just like human users, AI agents should have only the permissions they need. The pipeline failure agent only needs to read logs and list resources — it doesn't need delete capabilities.
-
-=== Understanding the GitOps Workflow
-
-Before we make changes to the MCP server configuration, it's important to understand how this environment is managed. This lab uses *GitOps* — a modern approach to infrastructure and application management where Git serves as the single source of truth for your desired system state.
-
-==== What is GitOps?
-
-GitOps is an operational framework that applies DevOps best practices — version control, collaboration, compliance, and CI/CD — to infrastructure automation. The core principle is simple: instead of manually running commands to configure systems, you declare your desired state in Git, and automation ensures the actual system matches that declaration.
-
-The benefits are significant:
-
-* *Auditability*: Every change is a Git commit with a timestamp, author, and message. You always know who changed what and when.
-* *Reproducibility*: The entire system state is captured in version-controlled files. You can recreate environments exactly.
-* *Rollback*: Made a mistake? `git revert` restores the previous state, and the automation applies it.
-* *Collaboration*: Use pull requests, code review, and approval workflows for infrastructure changes, just like application code.
-
-==== OpenShift GitOps (ArgoCD)
-
-This lab environment is managed by *OpenShift GitOps*, Red Hat's supported distribution of ArgoCD. ArgoCD is a declarative, GitOps continuous delivery tool for Kubernetes. Here's how it works:
-
-. *ArgoCD monitors your Git repository* — In this case, your personal `{user}/mcp` repository in Gitea.
-
-. *ArgoCD compares desired state to actual state* — It continuously compares the Kubernetes manifests in Git against what's actually running in the cluster.
-
-. *ArgoCD reconciles differences* — When it detects a drift (the cluster doesn't match Git), it automatically applies the changes to bring the cluster back in sync.
-
-. *Sync happens automatically* — ArgoCD polls your repository approximately every 30 seconds. When you commit a change, you'll typically see it reflected in the cluster within a minute.
-
-==== Your Gitea Repository Structure
-
-Your `{user}/mcp` repository contains everything needed to run the lab environment. Let's understand its structure:
-
-[source]
-----
-{user}/mcp/
-├── helm/
-│   ├── mcp-openshift/          # OpenShift MCP Server
-│   │   ├── Chart.yaml
-│   │   ├── values.yaml
-│   │   └── templates/
-│   │       └── mcpserver.yaml  # MCPServer custom resource
-│   │
-│   ├── mcp-gitea/              # Gitea MCP Server
-│   │   ├── Chart.yaml
-│   │   ├── values.yaml
-│   │   └── templates/
-│   │       └── mcpserver.yaml
-│   │
-│   └── agent/                  # Pipeline failure agent
-│       ├── Chart.yaml
-│       ├── values.yaml
-│       └── templates/
-│           └── deployment.yaml
-│
-└── agent/                      # Agent source code
-    ├── main.py
-    ├── requirements.txt
-    └── Containerfile
-----
-
-Each component is packaged as a Helm chart. Helm is a package manager for Kubernetes that uses templates to generate Kubernetes manifests. The `values.yaml` file contains configuration, and the `templates/` directory contains the actual Kubernetes resource definitions.
-
-==== The Workflow You'll Use
-
-Throughout this module, you'll make changes using this workflow:
-
-. *Navigate to the file in Gitea* — Use the Gitea web interface to browse to the file you want to modify.
-
-. *Edit the file* — Click the edit button (pencil icon) to modify the file directly in the browser. Alternatively, you could clone the repo and use your favorite editor.
-
-. *Commit the change* — Save your changes with a meaningful commit message. This creates a new Git commit.
-
-. *Wait for sync* — ArgoCD detects the new commit within ~30 seconds and begins applying changes.
-
-. *Verify in OpenShift* — Check the OpenShift console to confirm your changes took effect.
-
-This workflow means you never need to run `kubectl apply` or `oc apply` commands directly. Everything flows through Git, giving you a complete audit trail of all changes to your MCP infrastructure.
-
-==== Why GitOps for MCP?
-
-GitOps is particularly valuable for MCP server management:
-
-*Configuration as Code*:: Your MCP server configurations — which tools are allowed, what credentials are used, what telemetry is enabled — are all captured in version-controlled files. This documentation-as-code approach means your infrastructure is self-documenting.
-
-*Safe Experimentation*:: Want to try a new tool filter configuration? Make the change, test it, and if it doesn't work, revert the commit. The previous configuration is automatically restored.
-
-*Multi-Environment Consistency*:: The same Git repository structure can deploy to development, staging, and production clusters. Environment-specific values go in different `values.yaml` files; the templates remain the same.
-
-*Compliance and Governance*:: For regulated environments, having a complete Git history of all MCP configuration changes helps demonstrate compliance. Auditors can see exactly what was running at any point in time.
-
-Now that you understand how changes flow from Git to the cluster, let's create a tool filter configuration.
-
-=== Hands-On: Creating a Tool Filter
-
-ToolHive provides the `MCPToolConfig` custom resource for declarative tool filtering. You define which tools are permitted, and the ToolHive proxy enforces these restrictions at the protocol level — the AI never even sees the filtered tools in its `tools/list` response.
-
-. In Gitea navigate to `{user}/mcp/helm/mcp-openshift/templates` and create a new file `mcptoolconfig.yaml`:
+. Navigate to the *OpenShift Console* tab on the right.
+. Click on the *agent-{user}* project.
+. Click on *Pipelines*.
 +
-[source,yaml,role=execute]
-----
----
-apiVersion: toolhive.stacklok.dev/v1alpha1
-kind: MCPToolConfig
-metadata:
-  name: openshift-tool-filter
-  namespace: {{ .Values.namespace }}
-spec:
-  toolsFilter:
-  - events_list
-  - namespaces_list
-  - pods_get
-  - pods_list
-  - pods_list_in_namespace
-  - pods_log
-  - resources_get
-  - resources_list
-----
-
-. Commit and save the file.
-
-. Next edit the file `mcpserver.yaml` to pick up the new tool filter.
-. Add this to the `spec` which will allow only the listed tools. This should still be enough for our use agent.
-+
-[source,yaml,role=execute]
-----
-  toolConfigRef:
-    name: openshift-tool-filter
-----
-
-. Commit the file
-. Check that the new MCP Server has been rolled out. OpenShift GitOps is configured to check for repository updates every 30 seconds - it shouldn't take much longer for the changes to appear on the cluster.
-. Test that the change worked:
-.. In Librechat try to list the pods again
-+
-[source,role=execute]
-----
-List the running pods in namespace agent-user1.
-----
-+
-You see that the one running pod is returned.
-
-.. Try to delete the pod (use your pod name instead of the example below):
-+
-[source,sh,role=execute]
-----
-Delete pod agent-6d8777b969-fmtxz in namespace agent-user1
-----
-+
-You should see that the request got cancelled. If you click the twistie you can see this result:
+[NOTE]
+====
+Depending on the size of your screen you'll have to click the Hamburger menu to show the navigation pane.
+====
+. Examine the pipeline `build-agent` and notice 3 build steps and a *trigger-agent* (finally) step to always execute (you may need to zoom out or scroll to the right to see all 4 steps)
+. Switch to *YAML* view and examine the *trigger-agent* task under *finally*.
+. Notice the code in the step (lines 54 - 60) - where it checks if any step in the pipeline failed. If a step failed it calls the AI Agent with the namespace and name of the failing pod.
+. Switch to the *PipelineRuns* page.
+. Notice how the pipeline ran once upon environment deployment to build and deploy the agent itself.
+. Switch to the *Topology* view and click on the agent `Deployment`.
+. Next to the pod name click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea. You can also point out the list of tools that each MCP server advertised.
 +
 [source]
 ----
-Error processing tool: [MCP][openshift][pods_delete] tool call failed: Error POSTing to endpoint (HTTP 400):
+============================================================
+🚀 Pipeline Failure Agent - Starting up
+============================================================
+📋 Loading MCP configuration from environment...
+OpenShift: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse#openshift (sse)
+Gitea: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp (streamable-http)
+🔌 Initializing MCP connections (2 servers)...
+Connecting to openshift (sse)...
+URL: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse#openshift
+SSE message endpoint: http://mcp-openshift-proxy.mcp-openshift-user57.svc.cluster.local:8080/sse?sessionid=SWA7CHWWO63ZB7K7YBN6PP4AAL
+SSE init result: {'jsonrpc': '2.0', 'id': 1, 'result': {'capabilities': {'logging': {}, 'tools': {'listChanged': True}}, 'protocolVersion': '2024-11-05', 'serverInfo': {'name': 'kubernetes-mcp-server', 'title': 'kubernetes-mcp-server', 'version': 'v0.0.55'}}}
+✅ openshift: connected
+Tools (23): ['configuration_view', 'events_list', 'helm_install', 'helm_list', 'helm_uninstall', 'namespaces_list', 'nodes_log', 'nodes_stats_summary', 'nodes_top', 'pods_delete', 'pods_exec', 'pods_get', 'pods_list', 'pods_list_in_namespace', 'pods_log', 'pods_run', 'pods_top', 'projects_list', 'resources_create_or_update', 'resources_delete', 'resources_get', 'resources_list', 'resources_scale']
+Connecting to gitea (streamable-http)...
+URL: http://mcp-gitea-proxy.mcp-gitea-user57.svc.cluster.local:8080/mcp
+✅ gitea: connected
+Tools (57): ['add_issue_labels', 'clear_issue_labels', 'create_branch', 'create_file', 'create_issue', 'create_issue_comment', 'create_org_label', 'create_pull_request', 'create_pull_request_reviewer', 'create_release', 'create_repo', 'create_repo_label', 'create_tag', 'create_wiki_page', 'delete_branch', 'delete_file', 'delete_org_label', 'delete_release', 'delete_repo_label', 'delete_tag', 'delete_wiki_page', 'edit_issue', 'edit_issue_comment', 'edit_org_label', 'edit_repo_label', 'fork_repo', 'get_dir_content', 'get_file_content', 'get_gitea_mcp_server_version', 'get_issue_by_index', 'get_issue_comments_by_index', 'get_latest_release', 'get_my_user_info', 'get_pull_request_by_index', 'get_release', 'get_repo_label', 'get_tag', 'get_user_orgs', 'get_wiki_page', 'get_wiki_revisions', 'list_branches', 'list_my_repos', 'list_org_labels', 'list_releases', 'list_repo_commits', 'list_repo_issues', 'list_repo_labels', 'list_repo_pull_requests', 'list_tags', 'list_wiki_pages', 'remove_issue_label', 'replac...
+✅ Startup complete - 80 tools available
+============================================================
+INFO: Application startup complete.
+INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ----
 
-== Telemetry: Observability for AI Operations
+== Demonstrate how the agent works
 
-=== Why MCP Observability Matters
+The key business value of this architecture is *zero-touch incident response*. When a pipeline fails, the agent automatically springs into action — investigating the failure, analyzing logs, and documenting findings. This transforms reactive firefighting into proactive issue management.
 
-When AI agents interact with your systems through MCP, you need visibility into what's happening. Without observability, MCP servers are black boxes — you can't answer basic operational questions:
+Consider the traditional workflow: a pipeline fails, someone notices (eventually), they dig through logs, switch context to understand the codebase, and finally create an issue or ping the right person. This process can take 30 minutes to several hours depending on complexity and team availability. With MCP-powered automation, the entire investigation-to-documentation cycle completes in seconds, and developers receive a structured issue with actionable remediation steps the moment they look at their issue tracker.
 
-* How many AI requests are hitting your MCP servers?
-* Which tools are being called most frequently?
-* Are there error spikes that indicate problems?
-* Is usage growing in ways that require capacity planning?
+The business impact is clear: reduced mean-time-to-resolution (MTTR), better documentation of issues, and developers who can focus on fixing problems rather than diagnosing them.
 
-*Incident Response*:: When something goes wrong, you need audit trails. If an AI agent makes an unexpected change, you need to trace back: which tool was called, with what parameters, at what time? Prometheus metrics provide the foundation for this investigation.
+=== Trigger a failing pipeline run
 
-*Capacity Planning*:: MCP servers consume resources — CPU, memory, network connections. Understanding usage patterns helps you right-size deployments and plan for growth. If your AI adoption is successful, MCP traffic will increase.
-
-*SLO/SLA Management*:: If you're offering AI-assisted tools to your organization, you need to track availability and performance. Prometheus metrics enable you to define SLOs (Service Level Objectives) and alert when they're at risk.
-
-*Security Monitoring*:: Unusual patterns in MCP usage might indicate compromise or abuse. A sudden spike in `pods_delete` calls, even if they're failing due to tool filtering, could indicate an attempted attack.
-
-=== Available Metrics
-
-ToolHive exposes several Prometheus metrics for MCP servers:
-
-* `toolhive_mcp_active_connections` — Current number of active MCP client connections
-* `toolhive_mcp_requests_total` — Total number of MCP requests processed (with labels for tool name, status)
-* `toolhive_mcp_request_duration_seconds` — Histogram of request processing times
-
-These metrics integrate with OpenShift's built-in monitoring stack, allowing you to create dashboards, alerts, and use the same observability tools you use for other workloads.
-
-=== Hands-On: Enabling Prometheus Metrics
-
-. Edit the file `mcpserver.yaml` to include this under `spec:`:
+. We prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
+. Now we need to trigger the pipeline to attempt to build the agent. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline whenever a new change is pushed.
+. Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}` and are looking at *Pipelines*.
+. Click on the Pipeline *build-agent* to open the pipeline view.
+. Start a new Pipeline run by clicking on *Actions -> Start*
+. Leave all the default parameters - except for the *GIT_REVISION*. Change the git revision (branch) to be used to `broken`.
+. Select `VolumeClaimTemplate` for the *workspace*. Leave all other options as they are.
+. Click *Start* to start the Pipeline run.
+. If you want to, show the pipeline run logs and see it fail. The build step takes quite a long time (few minutes)... until it fails.
+. At a minimum, you would want to show that the second pipeline step (build) failed - and then you would want to show the *trigger-agent* finally task and especially the logs of that task.
+. Note what the *trigger-agent* task passes to the agent: *ONLY* the namespace, pod name and container name. You can explain that the agent uses the OpenShift MCP Server to figure out what failed in that task.
 +
-[source,yaml,role=execute]
+[source]
 ----
-  telemetry:
-    prometheus:
-      enabled: true
+[...]
++ curl -i -H 'Content-Type: application/json' -X POST -d '{"namespace":"agent-user57","pod_name":"build-agent-mtkhb0-build-pod-retry2","container_name":"step-buildah"}' http://agent.agent-user57.svc:8000/report-failure
+[...]
+{"status":"success","result":"Issue created: {\"Result\":{\"id\":1,\"url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/api/v1/repos/user57/mcp/issues/1\",\"html_url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/user57/mcp/issues/1\",\"number\":1,\"user\":{\"id\":58,\"login\":\"user57\",\"login_name\":\"user57\",\"source_id\":0,\"full_name\":\"\",\"email\":\"user57@opentlc.com\",\"avatar_url\":\"https://gitea.apps.cluster-7s89v.dynamic.redhatworkshops.io/avatar/843dd77a02def9ebcb459ba9b0c89646\",\"language\":\"en-US\",\"is_admin\":false,\"last_login\":\"2025-12-17T15:45:53Z\",\"created\":\"2025-12-17T14:27:55Z\",\"restricted\":false,\"active\":true,\"prohibit_login\":false,\"location\":\"\",\"website\":\"\",\"description\":\"\",\"visibility\":\"public\",\"followers_count\":0,\"following_count\":0,\"starred_repos_count\":0},\"original_author\":\"\",\"original_author_id\":0,\"title\":\"Issue with Agent pipeline\",\"body\":\"### Cluster/namespace location\\nagent-user57/build-agent-mtkhb0-build-pod-retry2\\n\\n### Summary of the problem\\nThe pod is failing to build the agent image due to a missing `requirements.txt` file.\\n\\n### Detailed error/code\\nError: building at STEP \\\"COPY requirements.txt .\\\": checking on sources under \\\"/workspace/source/agent\\\": copier: stat: \\\"/requirements.txt\\\": no such file or directory\\n\\n### Possible solutions\\n1. Verify that a `requirements.txt` file exists in the `/workspace/source/agent` directory.\\n2. Update the `Containerfile` to reference the correct location of the `requirements.txt` file if it exists in a different directory.\",\"ref\":\"\",\"labels\":[],\"milestone\":null,\"assignees\":null,\"state\":\"open\",\"is_locked\":false,\"comments\":0,\"created_at\":\"2025-12-17T15:58:55Z\",\"updated_at\":\"2025-12-17T15:58:55Z\",\"closed_at\":null,\"due_date\":null,\"pull_request\":null,\"repository\":{\"id\":57,\"name\":\"mcp\",\"owner\":\"user57\",\"full_name\":\"user57/mcp\"}}}"}
 ----
-. Commit the file.
-. When the change has rolled out you can test by using the route:
+
+=== Show what the agent did
+
+One of the most valuable aspects of AI-generated issues is *consistency*. Human-written bug reports vary wildly in quality — some include all the relevant context, others are terse "it's broken" messages. The AI agent produces structured, comprehensive issues every time: location, summary, detailed error, and suggested remediation steps.
+
+This consistency pays dividends over time. Issues become searchable knowledge bases, patterns emerge across failures, and new team members can understand problems without institutional knowledge. The same MCP-based pattern extends to other notification channels — Slack, PagerDuty, email, or any system with an MCP server — enabling organizations to route issues to the right channels automatically.
+
+. Switch back to *Topology* and click on the agent `Deployment`.
+. Next to the pod name click on *View logs* to show the pod logs
+. Show the pod logs and point out what the agent did. The interesting bit starts with
 +
 [source,sh,role=execute,subs=attributes]
-----
-curl https://mcp-openshift-mcp-openshift-{user}.{openshift_cluster_ingress_domain}/metrics
-----
+====
+============================================================
+📥 Received failure report
+============================================================
+====
 +
-You should see Prometheus-formatted metrics output. This confirms the MCP server is exposing metrics, but Prometheus isn't collecting them yet.
+In *Iteration 1* the agent gets the pod logs from OpenShift while in *Iteration 2* the agent opens a new issue in Gitea.
+. Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
 
-=== Understanding ServiceMonitor
+. Switch to the *Gitea* tab and open the *Issues* link under your *{user}/mcp* repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
+. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP Servers available to all kinds of scenarios.
 
-At this point, your MCP server is exposing metrics on its `/metrics` endpoint, but OpenShift's Prometheus instance doesn't know about it. This is where the *ServiceMonitor* comes in.
+=== Investigating the issue
 
-==== How Prometheus Discovers Targets
+Beyond automated agents, MCP enables something equally powerful: *natural language infrastructure queries*. Instead of memorizing kubectl commands, oc syntax, or git CLI options, developers and operators can simply ask questions in plain English.
 
-Prometheus uses a pull-based model for metrics collection. Instead of applications pushing metrics to Prometheus, Prometheus reaches out to applications and "scrapes" their metrics endpoints at regular intervals. But how does Prometheus know which endpoints to scrape?
+This democratizes DevOps knowledge across the organization. Junior developers can diagnose issues that previously required senior engineer intervention. Platform teams can focus on building and improving infrastructure rather than answering "how do I check the logs for pod X?" questions. The barrier to entry for troubleshooting drops dramatically.
 
-In traditional Prometheus deployments, you would manually configure scrape targets in a configuration file. This doesn't scale well in dynamic Kubernetes environments where pods come and go constantly.
+Consider the ROI: if a junior developer can now resolve issues in 15 minutes that previously required escalating to a senior engineer (who might not be available for hours), the productivity gains compound rapidly across an organization.
 
-==== The ServiceMonitor Custom Resource
+. On the right switch to *LibreChat*.
+. Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
+. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers. If you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo)
+. The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both of them.
 
-The *Prometheus Operator* (which powers OpenShift's monitoring stack) solves this with the `ServiceMonitor` custom resource. A ServiceMonitor tells Prometheus:
-
-* *Which Services to scrape* — Using label selectors to match Kubernetes Services
-* *Which port to use* — The named port on the Service that exposes metrics
-* *The metrics path* — Usually `/metrics`, but configurable
-* *Scrape interval* — How often to collect metrics (e.g., every 30 seconds)
-* *Additional configuration* — Authentication, TLS settings, relabeling rules
-
-When you create a ServiceMonitor, the Prometheus Operator automatically updates Prometheus's configuration to include the new scrape target. When you delete the ServiceMonitor, Prometheus stops scraping that target. This dynamic discovery is essential for Kubernetes-native observability.
-
-==== How It Works in This Lab
-
-Here's the flow for MCP server metrics:
-
-. *ToolHive creates a Service* — When you deploy an MCPServer with telemetry enabled, ToolHive creates a Kubernetes Service that exposes the metrics endpoint.
-
-. *You create a ServiceMonitor* — The ServiceMonitor uses label selectors to find the ToolHive-created Service.
-
-. *Prometheus Operator detects the ServiceMonitor* — The operator watches for ServiceMonitor resources in namespaces it's configured to monitor.
-
-. *Prometheus configuration is updated* — The operator generates a new Prometheus configuration that includes your MCP server as a scrape target.
-
-. *Prometheus begins scraping* — Every 30 seconds (or whatever interval you specify), Prometheus fetches metrics from your MCP server.
-
-. *Metrics become queryable* — You can now query MCP metrics in the OpenShift Console's Observe → Metrics interface, create dashboards, and set up alerts.
-
-==== The ServiceMonitor Manifest Explained
-
-Let's create the ServiceMonitor and understand each part:
-
-. Create a new file `servicemonitor.yaml`:
+. Start by asking the LLM about your Gitea user and your repositories:
 +
-[source,yaml,role=execute]
+[source,role="execute"]
 ----
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: mcp-openshift
-  namespace: {{ .Values.namespace }}
-  labels:
-    team: mcp
-spec:
-  namespaceSelector:
-    matchNames:
-    - {{ .Values.namespace }}
-  selector:
-    matchLabels:
-      app: mcpserver
-      toolhive-name: openshift
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 30s
-    scheme: http
+Tell me about my Gitea user and all repositories that I own.
 ----
 
-. Commit and sync.
-. Switch to the `mcp-openshift-{user}` project.
-. In the OpenShift Console navigate to Observe -> Metrics and query for `toolhive_mcp_active_connections` or `toolhive_mcp_requests_total`.
-
-== Adding a Simple MCP Server: Time Service
-
-=== Extending AI Capabilities
-
-One of MCP's strengths is the growing ecosystem of MCP servers. Adding new capabilities to your AI agents is often as simple as deploying another MCP server. In this section, you'll deploy a simple Time MCP server to demonstrate the process.
-
-The Time MCP server provides tools for:
-
-* Getting the current time in any timezone
-* Converting times between timezones
-* Formatting dates and times
-
-While simple, this demonstrates the pattern for adding any MCP server to your environment. The same process applies whether you're adding a Slack notification server, a database query server, or a custom internal tool.
-
-=== Business Value of Standardized Time Handling
-
-Even a "simple" capability like time handling has business value:
-
-* *Distributed Teams*: AI agents can provide timezone-aware responses ("Schedule this for 9 AM in Tokyo, which is 5 PM Pacific")
-* *Audit Consistency*: All AI-generated timestamps use consistent formatting
-* *Compliance*: Financial and regulatory systems often require specific timestamp formats
-
-=== Deploying the Time MCP Server
-
-. In Gitea, navigate to `{user}/mcp/helm` and create a new directory `mcp-time`.
-
-. Create a file `mcp-time/Chart.yaml`:
+. Get a list of all pods in the `agent-{user}` namespace (sometimes you need to ask twice):
 +
-[source,yaml,role=execute]
+[source,role="execute",subs=attributes]
 ----
-apiVersion: v2
-name: mcp-time
-description: Time MCP Server
-version: 0.1.0
+What pods are running in namespasce agent-{user}
 ----
 
-. Create a file `mcp-time/values.yaml`:
+. Ask for pods in `Error` state (note that it remembers the namespace from the previous command):
 +
-[source,yaml,role=execute]
+[source,role="execute",subs=attributes]
 ----
-namespace: mcp-time-{user}
-----
-
-. Create `mcp-time/templates/mcpserver.yaml`:
-+
-[source,yaml,role=execute]
-----
----
-apiVersion: toolhive.stacklok.dev/v1alpha1
-kind: MCPServer
-metadata:
-  name: time
-  namespace: {{ .Values.namespace }}
-spec:
-  image: ghcr.io/modelcontextprotocol/time:latest
-  transport: stdio
-  telemetry:
-    prometheus:
-      enabled: true
+What pods in namespasce agent-{user} are in Error state?
 ----
 
-. Commit all files.
-
-. Add the new Helm chart to your ArgoCD Application or wait for GitOps to sync.
-
-. Once deployed, add the Time MCP server to LibreChat and test it:
+. Get the full pod logs (replace the pod name with your pod name from the previous output):
 +
-[source,role=execute]
+[source,role="execute"]
 ----
-What time is it in Tokyo right now?
+Show me the pod logs for pod build-agent-13ru7o-build-pod.
 ----
 
-== Deep Dive: Understanding MCP Architecture
-
-This section provides a deeper understanding of the MCP ecosystem, from the ToolHive operator that manages server lifecycles to emerging standards like MCP registries and OAuth authentication.
-
-=== Understanding ToolHive
-
-ToolHive is a Kubernetes operator developed by Stacklok that manages the lifecycle of MCP servers in containerized environments. It solves a fundamental problem: most MCP servers were designed for desktop use with stdio (standard input/output) communication, but Kubernetes workloads need network-accessible services.
-
-*What ToolHive Provides:*
-
-* *MCPServer Custom Resource*: A Kubernetes-native way to declare MCP servers. You specify the container image and configuration; ToolHive handles the rest.
-
-* *Automatic Proxy Injection*: ToolHive wraps stdio-based MCP servers with an HTTP proxy, making them accessible over the network without modifying the original server code.
-
-* *Tool Filtering*: The `MCPToolConfig` resource lets you restrict which tools are exposed, implementing least-privilege access control.
-
-* *Telemetry Integration*: Built-in Prometheus metrics export for observability.
-
-* *Transport Abstraction*: Whether the underlying server uses stdio, SSE, or streamable HTTP, ToolHive presents a consistent interface to clients.
-
-=== How MCP Servers Get Deployed
-
-When you create an `MCPServer` custom resource, ToolHive's controller performs the following:
-
-. *Validates the specification* — Checks that the image exists, transport is valid, and configuration is complete.
-
-. *Creates a Deployment* — Runs the MCP server container with the ToolHive proxy sidecar.
-
-. *Creates a Service* — Exposes the MCP server within the cluster on a predictable hostname.
-
-. *Optionally creates a Route/Ingress* — For external access (used by LibreChat in this lab).
-
-. *Applies tool filtering* — If an `MCPToolConfig` is referenced, configures the proxy to filter tools.
-
-. *Configures telemetry* — Sets up Prometheus metrics endpoints if enabled.
-
-In this lab, GitOps (OpenShift GitOps/ArgoCD) automates the deployment. When you commit changes to your Gitea repository, ArgoCD detects the change and applies the updated manifests to the cluster. This typically happens within 30 seconds.
-
-=== MCP Transport Protocols
-
-MCP supports several transport mechanisms, each with different trade-offs:
-
-*stdio (Standard I/O)*::
-The original MCP transport, designed for local process communication. The MCP client spawns the server as a subprocess and communicates via stdin/stdout. This is simple and efficient for desktop applications but doesn't work in networked environments.
+. Ask how to fix the issue
 +
-Most community MCP servers use stdio because it's the easiest to implement. ToolHive's proxy converts stdio servers to network-accessible services.
+[source,role="execute"]
+----
+How can I fix that issue?
+----
 
-*SSE (Server-Sent Events)*::
-A unidirectional streaming protocol built on HTTP. The client opens a long-lived HTTP connection, and the server pushes events as they occur. Used by the OpenShift MCP Server in this lab.
-+
-SSE is widely supported and works through most proxies and firewalls. However, it's unidirectional — the client can only send data through separate HTTP requests.
+=== Agent Source Code (optional)
 
-*Streamable HTTP*::
-A bidirectional HTTP-based transport that supports true request/response patterns. Used by the Gitea MCP Server in this lab.
-+
-This is the most flexible transport, supporting all MCP features including streaming responses and bidirectional communication.
+Looking at the agent's source code reveals an important business insight: the code is remarkably simple. The agent doesn't contain complex API integration logic for OpenShift or Gitea — MCP handles all of that. The agent focuses purely on the business logic: "when a failure is reported, investigate it and create an issue."
 
-*The ToolHive Proxy Approach*::
-ToolHive runs a proxy sidecar alongside each MCP server container. For stdio servers, this proxy:
-+
-. Spawns the MCP server process
-. Reads JSON-RPC messages from the server's stdout
-. Exposes these over HTTP (SSE or streamable HTTP)
-. Translates incoming HTTP requests to stdin writes
-+
-This means you can use any existing MCP server — even one designed for Claude Desktop — in a Kubernetes environment without modification.
+This separation of concerns means organizations can build sophisticated AI-powered automation without deep expertise in every system they integrate with. The same pattern applies to other use cases: security scanning agents, compliance checkers, automated code reviewers — any scenario where you want AI to interact with enterprise systems.
 
-=== RBAC and Authentication
-
-MCP servers need credentials to access the systems they interact with. This lab demonstrates two common patterns:
-
-*OpenShift MCP Server: Kubernetes RBAC*::
-The OpenShift MCP Server runs with a Kubernetes service account. This service account has specific RBAC (Role-Based Access Control) bindings that determine what resources it can access.
-+
-In this lab, the service account has permissions scoped to specific namespaces. If you tried to use the MCP server to access resources in a namespace it's not authorized for, the Kubernetes API would reject the request.
-+
-This is a powerful pattern because it uses Kubernetes' native security model. You manage AI agent permissions the same way you manage any other workload's permissions.
-
-*Gitea MCP Server: Token Authentication*::
-The Gitea MCP Server authenticates to the Gitea API using a personal access token. This token is stored as a Kubernetes Secret and mounted into the MCP server container.
-+
-The token's scope determines what the MCP server can do. A token with read-only repository access would limit the server to read operations, even if the MCP server code supports writes.
-
-*Best Practices for Credential Management:*
-
-* Store credentials in Kubernetes Secrets, never in ConfigMaps or environment variables in plain text
-* Use the most restrictive scope possible for tokens
-* Rotate credentials regularly
-* Consider using short-lived tokens where possible
-* Audit credential access through Kubernetes audit logging
-
-=== MCP Registry: Centralized Server Discovery
-
-As organizations deploy more MCP servers, they face discovery and governance challenges:
-
-* How do developers know what MCP servers are available?
-* How do administrators control which servers are approved for use?
-* How do you track versions and ensure consistency?
-
-The *MCP Registry* specification addresses these needs. A registry provides:
-
-*Server Catalog*:: A searchable index of available MCP servers with metadata including name, description, capabilities, and connection information.
-
-*Version Management*:: Track different versions of MCP servers and their compatibility requirements.
-
-*Governance Controls*:: Administrators can mark servers as approved, deprecated, or restricted.
-
-*Discovery API*:: A standardized API that tools can use to find and connect to MCP servers programmatically.
-
-Organizations can run private registries to catalog their internal MCP servers. The registry API follows a https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[standard specification], enabling tool interoperability.
-
-Future versions of ToolHive will integrate with registries to enable automatic server discovery — you'll be able to browse available servers and deploy them directly from the registry.
-
-=== Image Signing and Provenance
-
-Supply chain security is critical for MCP servers. When you deploy an MCP server, you're giving it access to your systems. How do you know the container image hasn't been tampered with?
-
-*Container Image Signing*::
-Tools like https://www.sigstore.dev/[Sigstore] and `cosign` enable cryptographic signing of container images. Publishers sign images with their private key; consumers verify signatures before deployment.
-+
-For MCP servers, this means you can verify that:
-+
-* The image was built by a trusted publisher
-* The image hasn't been modified since signing
-* The image matches the expected content hash
-
-*Provenance Tracking*::
-The MCP Registry specification includes fields for provenance information:
-+
-* Build timestamp
-* Source repository and commit
-* Builder identity
-* Signature verification status
-+
-This information helps organizations make informed decisions about which MCP servers to trust.
-
-*Future Enforcement*::
-While current tools support signing and provenance tracking, enforcement is still evolving. Future versions of ToolHive may support policies like "only deploy MCP servers with valid signatures from approved publishers."
-
-=== OAuth/OIDC Authentication: The Future Direction
-
-Current MCP deployments typically use static tokens for authentication. This works but has limitations:
-
-* Tokens are long-lived, increasing exposure if compromised
-* No connection to enterprise identity providers
-* Difficult to implement per-user access control
-
-The MCP community is developing OAuth 2.0 and OpenID Connect (OIDC) support to address these limitations:
-
-*OAuth 2.0 Integration*::
-MCP servers will be able to participate in OAuth flows, obtaining short-lived access tokens that can be refreshed. This enables:
-+
-* Integration with enterprise identity providers (Okta, Azure AD, Keycloak)
-* Fine-grained, time-limited access
-* Token revocation when access should be terminated
-
-*Identity Propagation*::
-When an AI agent calls a tool on behalf of a user, the user's identity can flow through the entire call chain. The backend system knows not just that "an AI called this tool" but "Alice's AI assistant called this tool on her behalf."
-+
-This enables:
-+
-* Per-user audit trails
-* User-specific access control (Alice can access her repositories, not Bob's)
-* Compliance with data access regulations
-
-*Enterprise SSO*::
-With OIDC support, organizations can require that MCP access go through their SSO system. Users authenticate once, and their AI tools inherit that authentication.
-
-These capabilities are still being standardized, but the November 2025 MCP specification update included significant progress on enterprise authorization patterns.
+. In the panel on the right switch to the *Gitea* tab.
+. Navigate to the your user's `mcp` repository if you aren't already there.
+. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
+. You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
+. Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP Servers. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.
