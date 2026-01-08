@@ -1,4 +1,4 @@
-= Soverein SRE Agent Demo
+= Sovereign SRE Agent Demo
 
 == Explore the Environment
 

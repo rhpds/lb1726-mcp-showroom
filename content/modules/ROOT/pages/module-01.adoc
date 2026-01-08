@@ -1,6 +1,4 @@
-= {lab_name}
-
-== Lab Setup
+= Lab Setup
 
 Your environment has already been pre-configured for you.
 
@@ -12,13 +10,13 @@ On the right hand side you see three tabs. On each tab log into the application 
 Your user's password is the same for all applications.
 ====
 
-=== OpenShift Console
+== OpenShift Console
 
 . On the right panel switch to the *OpenShift Console* tab if it's not already selected.
 . Log in using user `{user}` and password `{password}`
 . Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
 
-=== LibreChat
+== LibreChat
 
 . On the right panel switch to the *LibreChat* tab.
 . Log in using your LibreChat user: `{librechat_user}` with password `{librechat_password}`
@@ -67,7 +65,7 @@ INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 This is a limitation of the Python code that makes up our agent - a real agent would have logic to detect that it can't connect to the MCP Servers and then periodically retry. But for the purposes of this lab the code is good enough.
 ====
 
-=== Gitea
+== Gitea
 
 . On the right panel switch to the *Gitea* tab.
 . Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
