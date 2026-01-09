@@ -1,3 +1,4 @@
 * xref:module-01.adoc[Lab Setup]
 * xref:module-02.adoc[Sovereign SRE Agent Demo]
 * xref:module-03.adoc[MCP Server Administration]
+* xref:module-04.adoc[MCP Registry]

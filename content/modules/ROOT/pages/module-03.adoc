@@ -313,9 +313,9 @@ spec:
 
 [NOTE]
 ====
-We are taking a few small shortcuts in the section below. For one LibreChat has been preconfigured for your user - actually for all users using a GitOps ApplicationSet - so you can't really change the LibreChat configuration that's stored in a `ConfigMap`. LibreChat has been pre-configured with the two MCP servers that you will be creating in the section below - they just haven't been operational until now.
+We are taking a few small shortcuts in the section below. For one LibreChat has been preconfigured for your user - actually for all users - using a GitOps ApplicationSet. Which means that you can't really change the LibreChat configuration that's stored in a `ConfigMap`. Therefore LibreChat has been pre-configured with the two MCP servers that you will be creating in the section below - they just haven't been operational until now.
 
-Second you are creating the additional MCP servers in the Helm Chart for the Gitea MCP server. We do that because you don't have a way to deploy an additional GitOps application using Helm - so we just "abuse" the Gitea MCP server helm chart. In the real world you would create your own Helm Chart for each additional MCP Server and then create a GitOps Application to deploy it.
+Second you are creating the YAML definitions for the additional MCP servers in the Helm Chart for the Gitea MCP server. We do that because you don't have a way to deploy an additional GitOps application using Helm - so we just "abuse" the Gitea MCP server helm chart. In the real world you would create your own Helm Chart for each additional MCP Server and then create a GitOps Application to deploy it.
 ====
 
 === Extending AI Capabilities

@@ -1,0 +1,714 @@
+= MCP Registry
+
+In the previous module, you deployed and configured individual MCP servers — adding tool filters, enabling telemetry, and extending AI capabilities with new servers. As organizations scale their AI initiatives, a new challenge emerges: how do you manage dozens or hundreds of MCP servers across teams, environments, and use cases?
+
+This module introduces the *MCP Registry* — a centralized catalog for discovering, governing, and managing MCP servers at enterprise scale. You will learn how to deploy your own registry, populate it with approved servers, and explore the governance patterns that make AI tool management tractable.
+
+== What is an MCP Registry?
+
+An MCP Registry is a centralized catalog that indexes all available MCP servers in your organization. Think of it as an "app store" for AI capabilities — a searchable, documented, governed collection of tools that AI agents can discover and use.
+
+The registry provides:
+
+*Centralized Catalog*:: A single source of truth listing every MCP server available in your organization, with descriptions, capabilities, and connection information.
+
+*Standardized API*:: A REST API that follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification], enabling programmatic discovery by tools, automation, and AI clients.
+
+*Rich Metadata*:: Each server entry includes detailed information — what tools it provides, what environment variables it needs, what transport it uses, and its governance status.
+
+*Dynamic Discovery*:: The registry can aggregate both manually-curated server entries and automatically-discovered running instances, keeping the catalog current.
+
+=== Business Value of MCP Registries
+
+The value of a registry becomes clear as MCP adoption grows. Without centralized management, organizations face fragmented tool access, duplicated efforts, and governance blind spots.
+
+==== For Decision Makers
+
+*Centralized Governance*:: A single point of control for approving or deprecating AI tool access. Security and compliance teams can review and approve servers before they appear in the catalog.
+
+*Complete Audit Trail*:: Know exactly what AI capabilities are deployed across your organization. When auditors ask "what can your AI systems access?", you have a definitive answer.
+
+*Risk Classification*:: Classify servers by tier (Official, Community, Experimental) and status (Active, Deprecated). Control which categories are permitted in production environments.
+
+*Compliance Enablement*:: Demonstrate to auditors that AI tool access is controlled, documented, and follows your organization's change management processes.
+
+==== For Platform Engineers
+
+*Reduced Configuration Drift*:: The registry is the single source of truth for server endpoints and configuration. No more hunting through wikis or Slack channels for connection details.
+
+*Simplified Lifecycle Management*:: Update server metadata in one place. When a server version changes or an endpoint moves, update the registry — clients discover the change automatically.
+
+*Multi-Cluster Visibility*:: While each cluster can have its own registry, the standardized API enables aggregation and federated views across environments.
+
+*Observability Foundation*:: Registry metadata can enrich monitoring dashboards — track which servers are available, their versions, and usage patterns.
+
+==== For Developers
+
+*Self-Service Discovery*:: Browse available AI tools without asking colleagues. The registry documents what's available, what each server does, and how to connect.
+
+*Consistent Configuration*:: Get the right connection details, required environment variables, and configuration parameters from a single authoritative source.
+
+*Faster Integration*:: The standard API means tools can auto-configure. Future AI clients will query the registry and present available servers automatically.
+
+*Reduced Duplication*:: Before building a new MCP server, check the registry. Someone may have already created what you need.
+
+== Setting up Your MCP Registry
+
+Now let's deploy a working MCP Registry in your OpenShift environment. This hands-on section walks through each component, explaining both the "what" and the "why."
+
+=== Database Backend
+
+The MCP Registry needs persistent storage to maintain the server catalog, support efficient queries, and enable future features like usage analytics. We use PostgreSQL, deployed via the CloudNativePG operator — a production-grade solution that handles clustering, automated backups, and failover.
+
+The database initialization includes an important security design: separate users for different purposes. The `db_migrator` user has schema modification privileges (for database upgrades), while `db_app` is the runtime user with minimal privileges. This separation follows the principle of least privilege — even if the runtime application is compromised, attackers cannot modify the database schema.
+
+. Switch back to the Gitea tab. Again we are taking the same shortcut to create all new resources in the Gitea MCP Server Helm chart.
++
+Create a PostgreSQL database by adding file `psql.yaml` under the `templates` path of the Gitea MCP Server Helm chart:
++
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: mcp-registry-db
+  namespace: {{ .Values.namespace }}
+spec:
+  instances: 1
+  # imageName: registry.developers.openshift.com/cnpg/postgresql-16:latest
+  storage:
+    size: 1Gi
+    # storageClass: ocs-external-storagecluster-ceph-rbd
+  bootstrap:
+    initdb:
+      database: registry
+      postInitApplicationSQL:
+        - |
+          BEGIN;
+
+          DO $body$
+            DECLARE
+              migrator_user TEXT := 'db_migrator';
+              migrator_password TEXT := 'migrator_password';
+
+              app_user TEXT := 'db_app';
+              app_password TEXT := 'app_password';
+
+              db_name TEXT := 'registry';
+            BEGIN
+              EXECUTE format('CREATE USER %I WITH PASSWORD %L', migrator_user, migrator_password);
+              EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', db_name, migrator_user);
+              EXECUTE format('GRANT CREATE ON SCHEMA public TO %I', migrator_user);
+              EXECUTE format('GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO %I', migrator_user);
+
+              CREATE ROLE toolhive_registry_server;
+
+              EXECUTE format('CREATE USER %I WITH PASSWORD %L', app_user, app_password);
+              EXECUTE format('GRANT toolhive_registry_server TO %I', app_user);
+              EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', db_name, app_user);
+            END;
+          $body$;
+
+          COMMIT;
+----
+
+=== Defining Your Server Catalog
+
+The next step is to define which MCP servers should appear in your registry. This ConfigMap contains your curated catalog of approved servers — think of it as your organization's "app store" for AI tools.
+
+The ToolHive registry format uses a JSON schema with rich metadata for each server:
+
+* *tier*: Classification for governance — "Official" (organization-vetted), "Community" (third-party), "Experimental"
+* *status*: Lifecycle state — "Active", "Deprecated", "Experimental"
+* *tools*: Explicit list of capabilities the server provides — enables informed decisions
+* *tags*: Categorization for searchability — "kubernetes", "git", "database", etc.
+* *image*: Container image reference for deployment
+* *env_vars*: Required environment variables — helps users configure correctly
+
+This metadata enables governance (filter by tier), discovery (search by tags), and operational support (know what tools are available).
+
+[start=2]
+. Create a `ConfigMap` to hold the MCP Registry configuration. Add file `configmap-rh-one-mcp.yaml` to the `templates`:
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rh-one-mcp
+  namespace: {{ .Values.namespace}}
+data:
+  registry.json: |
+    {
+      "$schema": "https://raw.githubusercontent.com/stacklok/toolhive/main/pkg/registry/data/schema.json",
+      "version": "1.0.0",
+      "last_updated": "2025-01-14T00:00:00Z",
+      "servers": {
+        "kubernetes-mcp-server": {
+          "description": "A powerful and flexible Kubernetes Model Context Protocol (MCP) server implementation with support for Kubernetes and OpenShift",
+          "tier": "Community",
+          "status": "Active",
+          "transport": "sse",
+          "tools": [
+            "configuration_contexts_list",
+            "configuration_view",
+            "events_list",
+            "helm_install",
+            "helm_list",
+            "helm_uninstall",
+            "namespaces_list",
+            "nodes_log",
+            "nodes_stats_summary",
+            "nodes_top",
+            "pods_delete",
+            "pods_exec",
+            "pods_get",
+            "pods_list",
+            "pods_list_in_namespace",
+            "pods_log",
+            "pods_run",
+            "pods_top",
+            "projects_list",
+            "resources_create_or_update",
+            "resources_delete",
+            "resources_get",
+            "resources_list",
+            "resources_scale"
+          ],
+          "metadata": {
+            "stars": 879,
+            "pulls": 100,
+            "last_updated": "2025-12-16T16:23:00Z"
+          },
+          "repository_url": "https://github.com/containers/kubernetes-mcp-server",
+          "tags": [
+            "kubernetes",
+            "infrastructure",
+            "containers",
+            "devops",
+            "observability",
+            "openshift",
+            "service-mesh",
+            "virtualization"
+          ],
+          "image": "quay.io/containers/kubernetes_mcp_server:v0.0.56",
+          "permissions": {
+            "network": {
+              "outbound": {}
+            }
+          },
+          "env_vars": []
+        }
+      },
+      "gitea-mcp-server": {
+        "description": "Gitea MCP Server is an integration plugin designed to connect Gitea with Model Context Protocol (MCP) systems. This allows for seamless command execution and repository management through an MCP-compatible chat interface.",
+        "tier": "Official",
+        "status": "Active",
+        "transport": "streamable-http",
+        "tools": [
+          "get_my_user_info",
+          "create_repo",
+          "fork_repo",
+          "search_repos",
+          "search_users",
+          "search_org_teams",
+          "get_gitea_mcp_server_version",
+          "repo_list",
+          "repo_get",
+          "repo_delete",
+          "repo_update",
+          "branch_list",
+          "branch_create",
+          "branch_delete",
+          "branch_get",
+          "commit_get",
+          "commit_list",
+          "file_get",
+          "file_create",
+          "file_update",
+          "file_delete",
+          "file_list",
+          "tag_list",
+          "tag_create",
+          "tag_delete",
+          "release_list",
+          "release_get",
+          "release_create",
+          "release_delete",
+          "issue_list",
+          "issue_get",
+          "issue_create",
+          "issue_update",
+          "issue_delete",
+          "issue_comment_add",
+          "issue_comment_list",
+          "pull_list",
+          "pull_get",
+          "pull_create",
+          "pull_update",
+          "pull_merge",
+          "pull_review_add",
+          "pull_review_list",
+          "label_list",
+          "label_create",
+          "label_update",
+          "label_delete",
+          "milestone_list",
+          "milestone_get",
+          "milestone_create",
+          "milestone_update",
+          "milestone_delete",
+          "workflow_list",
+          "workflow_get",
+          "workflow_run",
+          "workflow_run_list",
+          "workflow_run_get",
+          "workflow_run_logs",
+          "workflow_job_list",
+          "workflow_job_logs",
+          "workflow_artifact_list",
+          "workflow_artifact_download",
+          "workflow_secret_list",
+          "workflow_secret_create",
+          "workflow_secret_update",
+          "workflow_secret_delete",
+          "workflow_variable_list",
+          "workflow_variable_create",
+          "workflow_variable_update",
+          "workflow_variable_delete",
+          "wiki_list",
+          "wiki_get",
+          "wiki_create",
+          "wiki_update",
+          "wiki_delete"
+        ],
+        "metadata": {
+          "stars": 1,
+          "pulls": 100000,
+          "last_updated": "2025-12-18T16:43:00Z"
+        },
+        "repository_url": "https://gitea.com/gitea/gitea-mcp",
+        "tags": [
+          "git",
+          "version-control",
+          "repository",
+          "collaboration",
+          "devops",
+          "ci-cd",
+          "code-management",
+          "api"
+        ],
+        "image": "docker.gitea.com/gitea-mcp-server:latest",
+        "permissions": {
+          "network": {
+            "outbound": {}
+          }
+        },
+        "env_vars": [
+          {
+            "name": "GITEA_ACCESS_TOKEN",
+            "description": "Gitea personal access token",
+            "required": true,
+            "secret": true
+          },
+          {
+            "name": "GITEA_HOST",
+            "description": "The URL of the Gitea instance",
+            "required": false,
+            "default": "https://gitea.com"
+          },
+          {
+            "name": "GITEA_INSECURE",
+            "description": "Whether to use insecure mode",
+            "required": false,
+            "default": "false"
+          }
+        ]
+      }
+    }
+----
+
+=== Managing Credentials Securely
+
+Database credentials are stored as a Kubernetes Secret. In Kubernetes, Secrets are base64-encoded (not encrypted by default, though OpenShift encrypts them at rest in etcd). The key principle: never store credentials in ConfigMaps or commit them to Git in plain text.
+
+[NOTE]
+====
+In production environments, integrate with dedicated secret management solutions:
+
+* *HashiCorp Vault*: Dynamic secrets, automatic rotation, audit logging
+* *External Secrets Operator*: Sync secrets from AWS Secrets Manager, Azure Key Vault, GCP Secret Manager
+* *Sealed Secrets*: Encrypt secrets for safe Git storage
+
+For this lab, we use a simple Secret for convenience, but the security reminder in the YAML comments is important.
+====
+
+[start=3]
+. Create a secret with the User ID and Password for the PostgreSQL database (in the real world you would store that secret somewhere else and not in the repository).
+Create a file `secret-mcp-registry-db-password.yaml` under `templates`:
++
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-registry-db-password
+  namespace: mcp-gitea-user2
+type: Opaque
+stringData:
+  user-password: app_password
+  migrator-password: migrator_password
+----
+
+=== Creating the Registry Service
+
+The `MCPRegistry` custom resource is the heart of the deployment. When you create this resource, the ToolHive operator:
+
+. *Deploys the registry API service* — A REST API that implements the MCP Registry specification
+. *Configures database connectivity* — Connects to PostgreSQL using the credentials you provided
+. *Loads the server catalog* — Reads your ConfigMap and populates the registry database
+. *Sets up synchronization* — Periodically re-reads the source to pick up changes
+
+Key configuration options:
+
+* `registries[].configMapRef`: Points to your server catalog ConfigMap
+* `syncPolicy.interval`: How often to sync (enables updates without pod restarts)
+* `databaseConfig`: Connection details including separate credentials for runtime and migrations
+
+[start=4]
+. Create the MCP Registry by adding file `mcpregistry.yaml` to the `templates` directory:
++
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPRegistry
+metadata:
+  name: mcp-registry
+  namespace: {{ .Values.namespace }}
+spec:
+  displayName: "ToolHive Official Registry (Git)"
+  registries:
+    - name: rh-one-mcp
+      format: toolhive
+      configMapRef:
+        name: rh-one-mcp
+        key: registry.json
+      syncPolicy:
+        interval: "1h"
+  databaseConfig:
+    host: mcp-registry-db-rw.{{ .Values.namespace }}.svc.cluster.local
+    port: 5432
+    user: db_app
+    migrationUser: db_migrator
+    database: registry
+    sslMode: require
+    dbAppUserPasswordSecretRef:
+      name: mcp-registry-db-password
+      key: user-password
+    dbMigrationUserPasswordSecretRef:
+      name: mcp-registry-db-password
+      key: migrator-password
+----
+
+=== Exposing the Registry API
+
+The Route makes the registry API accessible from outside the OpenShift cluster. This enables several use cases:
+
+* *Developer laptops* can query available servers without cluster access
+* *CI/CD pipelines* can discover server endpoints programmatically
+* *External AI clients* can auto-configure based on registry contents (future capability)
+
+[TIP]
+====
+For production deployments, consider these additional security measures:
+
+* *Authentication*: Add an OAuth proxy or mTLS for client authentication
+* *Network policies*: Restrict which source IPs can reach the registry
+* *Rate limiting*: Prevent abuse of the API
+====
+
+[start=5]
+. In order to be able to test the registry add a `Route` so that we can access the registry from outside our cluster.
+Add file `route-mcpregistry.yaml` to the `templates` directory:
++
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: mcp-registry
+  namespace: {{ .Values.namespace }}
+spec:
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+  to:
+    kind: Service
+    name: mcp-registry-api
+    weight: 100
+  wildcardPolicy: None
+----
+
+=== Testing the Registry
+
+Once all resources are deployed, you can query the registry API to verify it's working correctly.
+
+[start=6]
+. Once everything has synced to your namespace test that your registry is working (if you don't have `jq` available just omit that part):
++
+[source,sh,role=execute,subs=attributes]
+----
+curl https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+----
+
+=== Automatic Server Registration
+
+ToolHive's registry controller provides a powerful feature: *automatic discovery of running MCP servers*. The registry doesn't just contain manually-defined entries from your ConfigMap — it also detects and registers MCPServer instances running in your cluster.
+
+This dual-source model means:
+
+*Static entries*:: Servers defined in your ConfigMap catalog — these can include servers you plan to deploy, external servers, or documentation of servers in other clusters.
+
+*Dynamic entries*:: Running MCPServer instances are automatically discovered and registered. When you deploy an MCP server (like the Gitea or OpenShift servers from the previous module), it appears in the registry automatically.
+
+The benefits of this approach:
+
+* *Planning ahead*: Document servers in the registry before deployment
+* *Automatic discovery*: Running servers appear without manual registration
+* *Centralized control*: Administrators curate the ConfigMap; the system handles the rest
+
+[start=7]
+. Once everything has synced to your namespace test that your MCP servers are registered with the MCP registry (if you don't have `jq` available just omit that part):
++
+[source,sh,role=execute,subs=attributes]
+----
+curl https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+----
++
+.Sample Output
+[source,json]
+----
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.stacklok/kubernetes-mcp-server",
+        "description": "A powerful and flexible Kubernetes Model Context Protocol (MCP) server implementation with support for Kubernetes and OpenShift",
+        "repository": {
+          "url": "https://github.com/containers/kubernetes-mcp-server",
+          "source": "github"
+        },
+        "version": "1.0.0",
+        "packages": [
+          {
+            "registryType": "oci",
+            "identifier": "quay.io/containers/kubernetes_mcp_server:latest-linux-amd64",
+            "transport": {
+              "type": "sse",
+              "url": "http://localhost"
+            }
+          }
+        ],
+        "_meta": {
+          "io.modelcontextprotocol.registry/publisher-provided": {
+            "repository_id": "",
+            "repository_subfolder": "",
+            "repository_type": "github",
+            "repository_url": "https://github.com/containers/kubernetes-mcp-server",
+            "server_meta": "eyJpby5naXRodWIuc3RhY2tsb2siOiB7InF1YXkuaW8vY29udGFpbmVycy9rdWJlcm5ldGVzX21jcF9zZXJ2ZXI6bGF0ZXN0LWxpbnV4LWFtZDY0IjogeyJ0YWdzIjogWyJrdWJlcm5ldGVzIiwgImluZnJhc3RydWN0dXJlIiwgImNvbnRhaW5lcnMiLCAiZGV2b3BzIiwgIm9ic2VydmFiaWxpdHkiLCAib3BlbnNoaWZ0IiwgInNlcnZpY2UtbWVzaCIsICJ2aXJ0dWFsaXphdGlvbiJdLCAidGllciI6ICJDb21tdW5pdHkiLCAidG9vbHMiOiBbImNvbmZpZ3VyYXRpb25fY29udGV4dHNfbGlzdCIsICJjb25maWd1cmF0aW9uX3ZpZXciLCAiZXZlbnRzX2xpc3QiLCAiaGVsbV9pbnN0YWxsIiwgImhlbG1fbGlzdCIsICJoZWxtX3VuaW5zdGFsbCIsICJuYW1lc3BhY2VzX2xpc3QiLCAibm9kZXNfbG9nIiwgIm5vZGVzX3N0YXRzX3N1bW1hcnkiLCAibm9kZXNfdG9wIiwgInBvZHNfZGVsZXRlIiwgInBvZHNfZXhlYyIsICJwb2RzX2dldCIsICJwb2RzX2xpc3QiLCAicG9kc19saXN0X2luX25hbWVzcGFjZSIsICJwb2RzX2xvZyIsICJwb2RzX3J1biIsICJwb2RzX3RvcCIsICJwcm9qZWN0c19saXN0IiwgInJlc291cmNlc19jcmVhdGVfb3JfdXBkYXRlIiwgInJlc291cmNlc19kZWxldGUiLCAicmVzb3VyY2VzX2dldCIsICJyZXNvdXJjZXNfbGlzdCIsICJyZXNvdXJjZXNfc2NhbGUiXSwgInN0YXR1cyI6ICJBY3RpdmUiLCAibWV0YWRhdGEiOiB7InB1bGxzIjogMTAwLCAic3RhcnMiOiA4NzksICJsYXN0X3VwZGF0ZWQiOiAiMjAyNS0xMi0xNlQxNjoyMzowMFoifSwgInBlcm1pc3Npb25zIjogeyJuZXR3b3JrIjogeyJvdXRib3VuZCI6IHt9fX19fX0="
+          }
+        }
+      },
+      "_meta": {}
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "com.toolhive.k8s.mcp-gitea-user2/gitea",
+        "description": "Gitea MCP server",
+        "version": "1.0.0",
+        "packages": [
+          {
+            "registryType": "oci",
+            "identifier": "docker.gitea.com/gitea-mcp-server:latest",
+            "version": "latest",
+            "transport": {
+              "type": "streamable-http"
+            }
+          }
+        ],
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "http://mcp-registry-api.mcp-gitea-user2.svc.cluster.local:8080"
+          }
+        ],
+        "_meta": {
+          "io.modelcontextprotocol.registry/publisher-provided": {
+            "server_meta": "eyJpby5naXRodWIuc3RhY2tsb2siOiB7Imh0dHA6Ly9tY3AtcmVnaXN0cnktYXBpLm1jcC1naXRlYS11c2VyMi5zdmMuY2x1c3Rlci5sb2NhbDo4MDgwIjogeyJtZXRhZGF0YSI6IHsia3ViZXJuZXRlc191aWQiOiAiZjEzZDZhMWQtZGI1My00MTQyLTgxZWItYzBkZTNmNjE1MWJmIiwgImt1YmVybmV0ZXNfa2luZCI6ICJNQ1BTZXJ2ZXIiLCAia3ViZXJuZXRlc19uYW1lIjogImdpdGVhIiwgImt1YmVybmV0ZXNfaW1hZ2UiOiAiZG9ja2VyLmdpdGVhLmNvbS9naXRlYS1tY3Atc2VydmVyOmxhdGVzdCIsICJrdWJlcm5ldGVzX25hbWVzcGFjZSI6ICJtY3AtZ2l0ZWEtdXNlcjIiLCAia3ViZXJuZXRlc190cmFuc3BvcnQiOiAic3RyZWFtYWJsZS1odHRwIn19fX0="
+          }
+        }
+      },
+      "_meta": {}
+    }
+  ],
+  "metadata": {
+    "count": 2
+  }
+}
+----
+
+=== Understanding the Registry Output
+
+The JSON response from the registry API provides comprehensive information about each registered server:
+
+*Server Identity*:: The `name` field uniquely identifies the server. For dynamically-discovered servers, this includes the namespace to ensure uniqueness across the cluster.
+
+*Description and Metadata*:: Human-readable descriptions help users understand what each server does. The `_meta` section contains base64-encoded extended metadata including tags, tier, and tool lists.
+
+*Package Information*:: The `packages` array describes how to obtain and run the server — the container image, transport type, and version.
+
+*Remote Endpoints*:: For running servers, the `remotes` array includes the actual endpoint URLs for connecting to the server.
+
+*Server Count*:: The `metadata.count` field shows the total number of servers in the registry — useful for monitoring catalog growth and ensuring expected servers are present.
+
+== Exploring MCP Registry Capabilities
+
+Now that your registry is operational, let's explore what you can do with it. These exercises demonstrate the practical value of having a centralized server catalog.
+
+=== Querying the Registry API
+
+The registry API follows REST conventions. Here are some useful queries:
+
+==== List All Server Names
+
+Get a quick view of what's available:
+
+[source,sh,role=execute,subs=attributes]
+----
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.servers[].server.name'
+----
+
+This is useful for:
+
+* *Self-service discovery*: Developers can see available AI tools without documentation hunting
+* *Scripting*: Automation can iterate over available servers
+* *Inventory checks*: Verify expected servers are registered
+
+==== Get Full Server Details
+
+Retrieve complete information about a specific server:
+
+[source,sh,role=execute,subs=attributes]
+----
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.servers[] | select(.server.name | contains("kubernetes"))'
+----
+
+This provides all configuration details in one place — no hunting through multiple sources.
+
+=== Governance Workflows
+
+The registry enables structured governance of AI tool access. Here are patterns you can implement:
+
+==== Adding a New Approved Server
+
+When a team wants to introduce a new MCP server:
+
+. *Review request*: Security/platform team evaluates the server
+. *Add to catalog*: Edit the ConfigMap in Gitea to add the server entry
+. *Wait for sync*: The registry picks up changes based on `syncPolicy.interval`
+. *Verify registration*: Query the registry to confirm the new server appears
+. *Announce availability*: Teams can now discover and use the server
+
+This workflow ensures controlled introduction of new AI capabilities with an audit trail in Git.
+
+==== Server Lifecycle Management
+
+Use the `status` field to communicate server lifecycle:
+
+* *Active*: Server is production-ready and recommended for use
+* *Deprecated*: Server works but is being phased out — migrate to alternatives
+* *Experimental*: Server is available for testing but not production-approved
+
+Clients can filter on status to avoid deprecated servers. This enables safe transitions when retiring old capabilities.
+
+==== Tier-Based Access Control
+
+The `tier` field enables risk-based policies:
+
+* *Official*: Vetted and supported by your organization
+* *Community*: Third-party servers — use with awareness of support limitations
+* *Experimental*: Cutting-edge but potentially unstable
+
+Production environments might only permit "Official" tier servers, while development environments allow broader access.
+
+=== Integration Patterns
+
+The registry API enables powerful automation scenarios:
+
+==== CLI Tooling
+
+Create scripts that query the registry before operations:
+
+[source,sh,role=execute,subs=attributes]
+----
+#!/bin/bash
+# Example: List available MCP servers with their descriptions
+REGISTRY_URL="https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}"
+
+curl -s "${REGISTRY_URL}/registry/v0.1/servers" | \
+  jq -r '.servers[] | "\(.server.name): \(.server.description)"'
+----
+
+This reduces manual configuration and ensures consistency.
+
+==== Monitoring Integration
+
+Track registry health with simple checks:
+
+[source,sh,role=execute,subs=attributes]
+----
+# Check that expected number of servers are registered
+SERVER_COUNT=$(curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.metadata.count')
+echo "Registered servers: ${SERVER_COUNT}"
+
+# Alert if below expected threshold
+if [ "$SERVER_COUNT" -lt 2 ]; then
+  echo "WARNING: Expected at least 2 servers, found ${SERVER_COUNT}"
+fi
+----
+
+This can integrate with Prometheus AlertManager or other monitoring systems.
+
+=== Ideas for Further Exploration
+
+Try these additional exercises to deepen your understanding:
+
+. *Add a custom server entry*: Edit the ConfigMap to add a fictional MCP server with your own metadata. Watch it appear in the registry after sync.
+
+. *Experiment with tags*: Add tags like "team-platform" or "env-production" to organize servers. Query to filter by tag.
+
+. *Test sync behavior*: Modify an existing entry in the ConfigMap (change the description). Observe how quickly the registry reflects the change.
+
+. *Explore the API*: The registry follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification]. Review the spec to discover additional endpoints and capabilities.
+
+. *Consider federation*: In a multi-cluster environment, how would you aggregate registries? Each cluster could have its own registry, with a federated view for discovery across environments.
+
+. *Plan for scale*: As your organization adds more MCP servers, what governance processes would you implement? Consider approval workflows, periodic reviews, and automated compliance checks.
+
+== Summary
+
+In this module, you deployed an MCP Registry that provides centralized discovery and governance for MCP servers. The registry combines:
+
+* *Curated catalogs*: Manually-defined server entries in ConfigMaps
+* *Automatic discovery*: Running MCPServer instances registered dynamically
+* *Standard API*: REST interface for programmatic access
+* *Governance metadata*: Tier, status, and tags for lifecycle management
+
+This foundation enables your organization to scale AI tool adoption while maintaining control, visibility, and compliance.
