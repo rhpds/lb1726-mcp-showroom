@@ -4,9 +4,13 @@
 
 This lab provides hands-on experience with MCP in an enterprise Kubernetes environment:
 
-*Module 1: Sovereign SRE Agent Demo* — Experience an end-to-end scenario where an AI agent automatically diagnoses a CI/CD pipeline failure. You'll see how the agent uses the OpenShift MCP Server to retrieve logs and the Gitea MCP Server to create an issue — all without any custom integration code. You'll also use LibreChat to interactively query your infrastructure using natural language.
+*Module 1: Lab Set up* - Set up your lab environment for the demo.
 
-*Module 2: MCP Server Administration* — Learn how to configure and manage MCP servers in production. This includes tool filtering (restricting which capabilities are exposed), telemetry and observability, and advanced topics like MCP registries.
+*Module 2: Sovereign SRE Agent Demo* — Experience an end-to-end scenario where an AI agent automatically diagnoses a CI/CD pipeline failure. You'll see how the agent uses the OpenShift MCP Server to retrieve logs and the Gitea MCP Server to create an issue — all without any custom integration code. You'll also use LibreChat to interactively query your infrastructure using natural language.
+
+*Module 3: MCP Server Administration* — Learn how to configure and manage MCP servers in production. This includes tool filtering (restricting which capabilities are exposed), telemetry and observability, and deploying additional MCP servers using different transport protocols.
+
+*Module 4: MCP Registry* — Deploy and explore an MCP Registry for centralized server discovery and governance. You'll learn how registries serve as an "app store" for AI capabilities — enabling self-service discovery for developers, governance controls for administrators, and standardized APIs for automation. The module covers deploying a registry with a PostgreSQL backend, curating server catalogs, automatic server registration, and governance workflows for managing AI tool access at enterprise scale.
 
 The lab environment includes:
 
@@ -125,7 +129,7 @@ Several patterns are emerging for MCP authentication:
 
 For larger deployments, centralized management becomes essential:
 
-*MCP Registry*:: A catalog of approved MCP servers within an organization. Developers can discover available servers, and administrators can control which servers are sanctioned for use.
+*MCP Registry*:: A catalog of approved MCP servers within an organization. Developers can discover available servers, and administrators can control which servers are sanctioned for use. Module 3 of this lab provides hands-on experience deploying and using an MCP Registry.
 
 *Policy Enforcement*:: An MCP gateway layer can enforce organizational policies before requests reach individual servers. This provides a single point for access control, rate limiting, and logging.
 
@@ -133,12 +137,13 @@ For larger deployments, centralized management becomes essential:
 
 === This Lab's Approach
 
-Module 2 of this lab demonstrates several of these enterprise hardening techniques hands-on:
+Modules 2 and 3 of this lab demonstrate several of these enterprise hardening techniques hands-on:
 
 * *Tool Filtering*: You'll create an `MCPToolConfig` to restrict the OpenShift MCP Server to read-only operations
 * *Telemetry*: You'll enable Prometheus metrics and configure a ServiceMonitor to collect MCP observability data
 * *RBAC*: You'll see how the OpenShift MCP Server respects Kubernetes role bindings
 * *Token Authentication*: The Gitea MCP Server is already configured with a personal access token scoped to your user
+* *MCP Registry*: You'll deploy a registry for centralized server discovery and governance
 
 == MCP Architecture
 
