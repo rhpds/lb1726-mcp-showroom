@@ -130,6 +130,7 @@ This metadata enables governance (filter by tier), discovery (search by tags), a
 
 [start=2]
 . Create a `ConfigMap` to hold the MCP Registry configuration. Add file `configmap-rh-one-mcp.yaml` to the `templates`:
++
 [source,yaml,role=execute,subs=attributes]
 ----
 ---
@@ -192,7 +193,7 @@ data:
             "service-mesh",
             "virtualization"
           ],
-          "image": "quay.io/containers/kubernetes_mcp_server:v0.0.56",
+          "image": "quay.io/containers/kubernetes_mcp_server:latest-linux-amd64",
           "permissions": {
             "network": {
               "outbound": {}
@@ -345,7 +346,7 @@ For this lab, we use a simple Secret for convenience, but the security reminder 
 ====
 
 [start=3]
-. Create a secret with the User ID and Password for the PostgreSQL database (in the real world you would store that secret somewhere else and not in the repository).
+. Create a secret with the User ID and Password for the PostgreSQL database.
 Create a file `secret-mcp-registry-db-password.yaml` under `templates`:
 +
 [source,yaml,role=execute,subs=attributes]
@@ -355,7 +356,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mcp-registry-db-password
-  namespace: mcp-gitea-user2
+  namespace: {{ .Values.namespace }}
 type: Opaque
 stringData:
   user-password: app_password
@@ -691,15 +692,10 @@ This can integrate with Prometheus AlertManager or other monitoring systems.
 Try these additional exercises to deepen your understanding:
 
 . *Add a custom server entry*: Edit the ConfigMap to add a fictional MCP server with your own metadata. Watch it appear in the registry after sync.
-
 . *Experiment with tags*: Add tags like "team-platform" or "env-production" to organize servers. Query to filter by tag.
-
 . *Test sync behavior*: Modify an existing entry in the ConfigMap (change the description). Observe how quickly the registry reflects the change.
-
 . *Explore the API*: The registry follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification]. Review the spec to discover additional endpoints and capabilities.
-
 . *Consider federation*: In a multi-cluster environment, how would you aggregate registries? Each cluster could have its own registry, with a federated view for discovery across environments.
-
 . *Plan for scale*: As your organization adds more MCP servers, what governance processes would you implement? Consider approval workflows, periodic reviews, and automated compliance checks.
 
 == Summary

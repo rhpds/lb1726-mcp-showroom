@@ -23,17 +23,17 @@ Your user's password is the same for all applications.
 . Activate the large language model, that you want to use, by clicking on the *My Agents* button top left. Select *LiteMAAS -> llama-scout-17b*.
 . There are two pre-deployed *MCP Servers* in your environment. One to interact with *OpenShift* and one to interact with *Gitea*.
 .. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers.
-.. Note that there are two additional MCP Servers defined: `fetch` and `yardstick` - you will deploy those much later in the lab. Do not activate those.
-.. For the two that we are activating, if you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers - although in a freshly deployed environment this should not be necessary (it is however necessary if the environment has stopped between deployment and the demo). If the servers are not initialized the LLM can't use them.
+.. Note that there are two additional MCP Servers defined: *fetch* and *yardstick* - you will deploy those much later in the lab. Do not attempt to activate those at this time.
+.. For the two that we are activating, if you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers. If the servers are not initialized the LLM can't use them.
 . The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both predeployed MCP Servers.
 
 [NOTE]
 ====
-If you had to *initialize* the MCP Servers that means that the agent pod was not able to initialize the server connection either. This can happen if the environment had been stopped between the time of deployment and when you are using this environment.
+If you had to *initialize* the MCP Servers that means that the *agent* pod was not able to initialize the server connection either. This can happen if the environment had been stopped between the time of deployment and when you are using this environment.
 
-To fix this Switch to the *OpenShift Console*, find the `agent-{user}` namespace and delete the pod that is running in there (starting with `agent`). This will re-initialize the LLM and MCP Server connection.
+To fix this switch to the *OpenShift Console*, find the `agent-{user}` namespace and delete the agent pod (its name starts with `agent-`). This will re-initialize the LLM and MCP Server connection.
 
-You can double check the logs of the new pod where you should see that both MCP Servers have been connected successfully:
+You can double check the logs of the recreated pod where you should see that both MCP Servers have been connected successfully:
 
 [source]
 ----
@@ -62,7 +62,7 @@ INFO: Application startup complete.
 INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 ----
 
-This is a limitation of the Python code that makes up our agent - a real agent would have logic to detect that it can't connect to the MCP Servers and then periodically retry. But for the purposes of this lab the code is good enough.
+This is a limitation of the rather simple Python code that makes up our agent - a real agent would have logic to detect that it can't connect to the MCP Servers and then periodically retry. But for the purposes of this lab the code is good enough.
 ====
 
 == Gitea
