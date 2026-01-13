@@ -12,7 +12,7 @@ The registry provides:
 
 *Centralized Catalog*:: A single source of truth listing every MCP server available in your organization, with descriptions, capabilities, and connection information.
 
-*Standardized API*:: A REST API that follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification], enabling programmatic discovery by tools, automation, and AI clients.
+*Standardized API*:: A REST API that follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification^], enabling programmatic discovery by tools, automation, and AI clients.
 
 *Rich Metadata*:: Each server entry includes detailed information — what tools it provides, what environment variables it needs, what transport it uses, and its governance status.
 
@@ -694,7 +694,7 @@ Try these additional exercises to deepen your understanding:
 . *Add a custom server entry*: Edit the ConfigMap to add a fictional MCP server with your own metadata. Watch it appear in the registry after sync.
 . *Experiment with tags*: Add tags like "team-platform" or "env-production" to organize servers. Query to filter by tag.
 . *Test sync behavior*: Modify an existing entry in the ConfigMap (change the description). Observe how quickly the registry reflects the change.
-. *Explore the API*: The registry follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification]. Review the spec to discover additional endpoints and capabilities.
+. *Explore the API*: The registry follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification^]. Review the spec to discover additional endpoints and capabilities.
 . *Consider federation*: In a multi-cluster environment, how would you aggregate registries? Each cluster could have its own registry, with a federated view for discovery across environments.
 . *Plan for scale*: As your organization adds more MCP servers, what governance processes would you implement? Consider approval workflows, periodic reviews, and automated compliance checks.
 

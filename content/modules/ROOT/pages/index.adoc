@@ -2,20 +2,35 @@
 
 == What You Will Learn in This Lab
 
-This lab provides hands-on experience with MCP in an enterprise Kubernetes environment:
+This lab provides hands-on experience with MCP in an enterprise Kubernetes environment.
 
-*Module 1: Lab Set up* - Set up your lab environment for the demo.
+*Estimated total time: 60-90 minutes*
 
-*Module 2: Sovereign SRE Agent Demo* — Experience an end-to-end scenario where an AI agent automatically diagnoses a CI/CD pipeline failure. You'll see how the agent uses the OpenShift MCP Server to retrieve logs and the Gitea MCP Server to create an issue — all without any custom integration code. You'll also use LibreChat to interactively query your infrastructure using natural language.
+=== Learning Objectives
 
-*Module 3: MCP Server Administration* — Learn how to configure and manage MCP servers in production. This includes tool filtering (restricting which capabilities are exposed), telemetry and observability, and deploying additional MCP servers using different transport protocols.
+By the end of this lab, you will be able to:
 
-*Module 4: MCP Registry* — Deploy and explore an MCP Registry for centralized server discovery and governance. You'll learn how registries serve as an "app store" for AI capabilities — enabling self-service discovery for developers, governance controls for administrators, and standardized APIs for automation. The module covers deploying a registry with a PostgreSQL backend, curating server catalogs, automatic server registration, and governance workflows for managing AI tool access at enterprise scale.
+* Explain how MCP eliminates custom integration code between AI applications and external systems
+* Configure MCP server tool filtering to implement least-privilege access control
+* Enable Prometheus telemetry and create ServiceMonitors for MCP server observability
+* Deploy additional MCP servers using different transport protocols (SSE, streamable HTTP, stdio)
+* Set up an MCP Registry for centralized server discovery and governance
+* Apply enterprise security patterns including RBAC and token-based authentication
 
-The lab environment includes:
+=== Module Overview
+
+*Module 1: Lab Setup* (~5 minutes) — Set up your lab environment for the demo.
+
+*Module 2: Sovereign SRE Agent Demo* (~20-30 minutes) — Experience an end-to-end scenario where an AI agent automatically diagnoses a CI/CD pipeline failure. You'll see how the agent uses the OpenShift MCP Server to retrieve logs and the Gitea MCP Server to create an issue — all without any custom integration code. You'll also use LibreChat using a Model hosted by our Model as a Service infrastructure to interactively query your infrastructure using natural language.
+
+*Module 3: MCP Server Administration* (~20-30 minutes) — Learn how to configure and manage MCP servers in production. This includes tool filtering (restricting which capabilities are exposed), telemetry and observability, and deploying additional MCP servers using different transport protocols.
+
+*Module 4: MCP Registry* (~20-30 minutes) — Deploy and explore an MCP Registry for centralized server discovery and governance. You'll learn how registries serve as an "app store" for AI capabilities — enabling self-service discovery for developers, governance controls for administrators, and standardized APIs for automation. The module covers deploying a registry with a PostgreSQL backend, curating server catalogs, automatic server registration, and governance workflows for managing AI tool access at enterprise scale.
+
+Your lab environment includes:
 
 * A user on a shared *OpenShift* cluster.
-* A user on a shared *Gitea* source code repository.
+* A user on a shared *Gitea* source code repository (running on that OpenShift cluster).
 * A predeployed *OpenShift MCP Server*: Provides 23 tools for Kubernetes/OpenShift operations (pod management, log retrieval, resource manipulation)
 * A predeployed *Gitea MCP Server*: Provides 106 tools for Git repository operations (issue creation, pull requests, file management)
 * *ToolHive*: The Kubernetes operator that manages MCP server deployments
@@ -43,8 +58,6 @@ MCP was designed with several key objectives in mind:
 
 *Dynamic Tool Discovery*:: AI applications can discover available tools at runtime. When you connect an MCP server, the AI automatically learns what capabilities are available — no hardcoded tool lists required.
 
-*Secure, Controlled Access*:: MCP supports fine-grained access control, allowing organizations to specify exactly which tools an AI can use. This is critical for enterprise deployments where you want AI assistance without giving unrestricted access to production systems.
-
 *Separation of Concerns*:: MCP cleanly separates AI reasoning from tool implementation. The AI focuses on understanding user intent and orchestrating tool calls, while MCP servers handle the specifics of interacting with external systems.
 
 == Business Benefits
@@ -53,7 +66,7 @@ Organizations adopting MCP for their AI initiatives realize several tangible ben
 
 *Reduced Development Time*:: Build integrations once and reuse them across all your AI applications. For example, a single OpenShift MCP server works with Claude Desktop, LibreChat, custom autonomous agents, and any future AI tools you adopt. Teams report 40-60% reduction in AI integration effort compared to building custom connectors.
 
-*Vendor-Agnostic Architecture*:: MCP eliminates LLM vendor lock-in. Because the protocol is standardized, you can swap underlying AI models without rewriting integrations. Start with one model, migrate to another as capabilities evolve — your MCP infrastructure remains unchanged.
+*Vendor-Agnostic Architecture*:: MCP eliminates LLM vendor lock-in. Because the protocol is standardized, you can swap underlying AI models without rewriting integrations. Start with one model, migrate to another as capabilities evolve — your MCP infrastructure remains unchanged. This allows you to test out different models for your particular use case until you settle on the model that works best.
 
 *Faster Time-to-Value*:: With MCP, adding AI capabilities to existing systems becomes a configuration exercise rather than a development project. Deploy an MCP server for your ticketing system, connect it to your AI assistant, and users can immediately interact with tickets using natural language.
 
@@ -65,7 +78,7 @@ While MCP provides a powerful foundation for AI-to-system integration, the proto
 
 === Authentication and Authorization
 
-*Security*:: MCP enables fine-grained tool access control with full audit trails. The just recently released https://modelcontextprotocol.io/specification/draft/basic/security_best_practices[MCP Security Specification^] mandates a "progressive, least-privilege scope model" where servers start with "minimal initial scope set... containing only low-risk discovery/read operations" and use "incremental elevation via targeted... challenges when privileged operations are first attempted."
+*Security*:: MCP enables fine-grained tool access control with full audit trails. The just recently released https://modelcontextprotocol.io/specification/draft/basic/security_best_practices[MCP Security Specification^] mandates a "progressive, least-privilege scope model" where servers start with "minimal initial scope set... containing only low-risk discovery/read operations" and use "incremental elevation via targeted... challenges when privileged operations are first attempted." However not many MCP Servers implement these features today.
 
 *No Built-in Authentication*:: The MCP core protocol does not define how to authenticate users or services. When an AI application connects to an MCP server, there's no standard mechanism to verify identity or establish trust.
 
@@ -111,9 +124,9 @@ In Kubernetes environments, ToolHive provides the `MCPToolConfig` custom resourc
 
 Several patterns are emerging for MCP authentication:
 
-*Token-Based Authentication*:: Pass API tokens to MCP servers so they can authenticate with backend services. For example, the Gitea MCP Server in this lab has been configured with a personal access token for each lab user that determines what repositories and actions are available.
+*Token-Based Authentication*:: Pass API tokens to MCP servers so they can authenticate with backend services. For example, the Gitea MCP Server in this lab has been configured with a personal access token for each lab user that determines what repositories and actions are available - although this token is global for the Gitea MCP Server. In the lab environment each student has their own MCP Server configured with a token for just their Gitea user.
 
-*Kubernetes RBAC Integration*:: MCP servers running in Kubernetes can use service accounts with specific role bindings. The OpenShift MCP Server, for instance, respects Kubernetes RBAC — it can only perform actions that its service account is authorized for. In this lab the OpenShift MCP server for each user only has access to the user's namespaces.
+*Kubernetes RBAC Integration*:: MCP servers running in Kubernetes can use service accounts with specific role bindings. The OpenShift MCP Server, for instance, respects Kubernetes RBAC — it can only perform actions that its service account is authorized for. In this lab the OpenShift MCP server for each user only has access to the user's namespace(s).
 
 *OAuth/OIDC Support*:: Emerging work on OAuth 2.0 and OpenID Connect integration will enable federated identity and token exchange, allowing user identity to flow through the entire MCP call chain.
 
@@ -129,7 +142,7 @@ Several patterns are emerging for MCP authentication:
 
 For larger deployments, centralized management becomes essential:
 
-*MCP Registry*:: A catalog of approved MCP servers within an organization. Developers can discover available servers, and administrators can control which servers are sanctioned for use. Module 3 of this lab provides hands-on experience deploying and using an MCP Registry.
+*MCP Registry*:: A catalog of approved MCP servers within an organization. Developers can discover available servers, and administrators can control which servers are sanctioned for use. Module 4 of this lab provides hands-on experience deploying and using an MCP Registry.
 
 *Policy Enforcement*:: An MCP gateway layer can enforce organizational policies before requests reach individual servers. This provides a single point for access control, rate limiting, and logging.
 
@@ -137,7 +150,7 @@ For larger deployments, centralized management becomes essential:
 
 === This Lab's Approach
 
-Modules 2 and 3 of this lab demonstrate several of these enterprise hardening techniques hands-on:
+Modules 3 and 4 of this lab demonstrate several of these enterprise hardening techniques hands-on:
 
 * *Tool Filtering*: You'll create an `MCPToolConfig` to restrict the OpenShift MCP Server to read-only operations
 * *Telemetry*: You'll enable Prometheus metrics and configure a ServiceMonitor to collect MCP observability data
@@ -149,9 +162,9 @@ Modules 2 and 3 of this lab demonstrate several of these enterprise hardening te
 
 At a high level, MCP follows a client-server model with three main components:
 
-*MCP Hosts*:: These are AI applications that consume tools. Examples include Claude Desktop, LibreChat (used in this lab), IDEs with AI extensions, and custom autonomous agents. The host is responsible for AI reasoning and deciding when to call tools.
+*MCP Hosts*:: These are AI applications that consume tools. Examples include Claude Desktop, LibreChat (used in this lab), IDEs with AI extensions, and custom autonomous agents (also used in this lab). The host is responsible for AI reasoning and deciding when to call tools.
 
-*MCP Servers*:: These are services that expose tools and resources to AI applications. Each MCP server provides a set of capabilities — for example, the OpenShift MCP Server in this lab provides 23 tools for cluster management, while the Gitea MCP Server provides 57 tools for repository operations.
+*MCP Servers*:: These are services that expose tools and resources to AI applications. Each MCP server provides a set of capabilities — for example, the OpenShift MCP Server in this lab provides 23 tools for cluster management, while the Gitea MCP Server provides 106 tools for repository operations.
 
 *MCP Protocol*:: The standardized communication layer between hosts and servers. Hosts discover available tools, invoke them with parameters, and receive results — all through a consistent JSON-RPC based protocol.
 
@@ -159,10 +172,11 @@ At a high level, MCP follows a client-server model with three main components:
 
 For those interested in the implementation details:
 
-*Transport Protocols*:: MCP supports multiple transport mechanisms. The two most common are:
+*Transport Protocols*:: MCP supports multiple transport mechanisms. The three most common are:
 
 * *SSE (Server-Sent Events)*: A unidirectional streaming protocol built on HTTP. The host opens a connection and receives events from the server.
 * *Streamable HTTP*: A bidirectional HTTP-based transport that supports request/response patterns.
+* *stdio*: Every time the MCP server is used it is started, parameters passed and the MCP server reponds to stdio output. This works great for local tools use like with IDEs - but for hosted MCP servers it's not so great. ToolHive offers a way to run these MCP servers anyway.
 
 *Tool Discovery*:: When a host connects to an MCP server, it calls `tools/list` to discover available capabilities. The server returns a list of tools with their names, descriptions, and parameter schemas. This enables AI applications to understand what each tool does without hardcoded knowledge.
 

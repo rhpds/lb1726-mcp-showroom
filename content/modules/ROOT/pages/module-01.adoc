@@ -26,12 +26,12 @@ Your user's password is the same for all applications.
 .. Note that there are two additional MCP Servers defined: *fetch* and *yardstick* - you will deploy those much later in the lab. Do not attempt to activate those at this time.
 .. For the two that we are activating, if you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers. If the servers are not initialized the LLM can't use them.
 . The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both predeployed MCP Servers.
-
++
 [NOTE]
 ====
 If you had to *initialize* the MCP Servers that means that the *agent* pod was not able to initialize the server connection either. This can happen if the environment had been stopped between the time of deployment and when you are using this environment.
 
-To fix this switch to the *OpenShift Console*, find the `agent-{user}` namespace and delete the agent pod (its name starts with `agent-`). This will re-initialize the LLM and MCP Server connection.
+To fix this, switch to the *OpenShift Console*, find the `agent-{user}` namespace and delete the agent pod (its name starts with `agent-`). This will re-initialize the LLM and MCP Server connection.
 
 You can double check the logs of the recreated pod where you should see that both MCP Servers have been connected successfully:
 

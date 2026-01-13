@@ -8,7 +8,7 @@ This demo shows a fundamentally different approach: AI-assisted incident respons
 
 === Show infrastructure
 
-Before triggering the demo, let's examine the infrastructure. Notice how minimal the configuration is: the agent simply connects to two MCP servers and gains access to 80+ tools spanning container orchestration and source code management. There's no custom API integration code — MCP handles all the connectivity.
+Before triggering the demo, let's examine the infrastructure. Notice how minimal the configuration is: the agent simply connects to two MCP servers and gains access to 120+ tools spanning container orchestration and source code management. There's no custom API integration code — MCP handles all the connectivity.
 
 . Navigate to the *OpenShift Console* tab on the right.
 . Click on the *agent-{user}* project.
@@ -24,7 +24,7 @@ Depending on the size of your screen you'll have to click the Hamburger menu to 
 . Switch to the *PipelineRuns* page.
 . Notice how the pipeline ran once upon environment deployment to build and deploy the agent itself.
 . Switch to the *Topology* view and click on the agent `Deployment`.
-. Next to the pod name click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM and connected to two MCP Agents - OpenShift and Gitea. You can also point out the list of tools that each MCP server advertised.
+. Next to the pod name click on *View logs* to show the pod logs - where you can show that the agent started up, connected to a LLM, and connected to two MCP servers - OpenShift and Gitea. You can also point out the list of tools that each MCP server advertised.
 +
 [source]
 ----
@@ -53,7 +53,7 @@ INFO: Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 
 == Demonstrate how the agent works
 
-The key business value of this architecture is *zero-touch incident response*. When a pipeline fails, the agent automatically springs into action — investigating the failure, analyzing logs, and documenting findings. This transforms reactive firefighting into proactive issue management.
+The key business value of this architecture is *zero-touch incident response*. When a pipeline fails, the agent is invoked — investigating the failure, analyzing logs, and documenting findings. This transforms reactive firefighting into proactive issue management.
 
 Consider the traditional workflow: a pipeline fails, someone notices (eventually), they dig through logs, switch context to understand the codebase, and finally create an issue or ping the right person. This process can take 30 minutes to several hours depending on complexity and team availability. With MCP-powered automation, the entire investigation-to-documentation cycle completes in seconds, and developers receive a structured issue with actionable remediation steps the moment they look at their issue tracker.
 
@@ -61,7 +61,7 @@ The business impact is clear: reduced mean-time-to-resolution (MTTR), better doc
 
 === Trigger a failing pipeline run
 
-. We prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch and point out that the only difference in that directory is that the file `requirements.txt` is missing (I'm open for a better "bug" - but since we only build and never run the python code this is the best I could come up with).
+. We prepared a branch in the Gitea repository with the name *broken*. Feel free to show that branch in your Gitea repository and point out that the only difference in that directory is that the file `requirements.txt` has accidentally been deleted and is therefore missing.
 . Now we need to trigger the pipeline to attempt to build the agent. In this scenario we do it manually - although we could easily set up a web hook in Gitea to trigger the pipeline whenever a new change is pushed.
 . Switch back to the *OpenShift console* tab, *Pipelines* and make sure you are in project `agent-{user}` and are looking at *Pipelines*.
 . Click on the Pipeline *build-agent* to open the pipeline view.
@@ -102,11 +102,11 @@ In *Iteration 1* the agent gets the pod logs from OpenShift while in *Iteration 
 . Notice that at the bottom of the log it should have printed that it opened an issue in Gitea.
 
 . Switch to the *Gitea* tab and open the *Issues* link under your *{user}/mcp* repository. You should see your brand new issue. Open the issue to see the text and suggestion that the agent added as issue body.
-. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP Servers available to all kinds of scenarios.
+. Explain that of course other courses of action could have also been taken - for example a Slack notification (too complicated to set up for multiple users in this demo), Pager Duty, e-mail, ... to notify the owner of that repository. There are a ton of MCP servers available to fit all kinds of scenarios.
 
 === Investigating the issue
 
-Beyond automated agents, MCP enables something equally powerful: *natural language infrastructure queries*. Instead of memorizing kubectl commands, oc syntax, or git CLI options, developers and operators can simply ask questions in plain English.
+Beyond automated agents, MCP enables something equally powerful: *natural language infrastructure queries*. Instead of memorizing `kubectl` commands, `oc` syntax, or `git` CLI options, developers and operators can simply ask questions in plain English.
 
 This democratizes DevOps knowledge across the organization. Junior developers can diagnose issues that previously required senior engineer intervention. Platform teams can focus on building and improving infrastructure rather than answering "how do I check the logs for pod X?" questions. The barrier to entry for troubleshooting drops dramatically.
 
@@ -124,14 +124,14 @@ Tell me about my Gitea user and all repositories that I own.
 +
 [source,role="execute",subs=attributes]
 ----
-What pods are running in namespasce agent-{user}
+What pods are running in namespace agent-{user}
 ----
 
 . Ask for pods in `Error` state (note that it remembers the namespace from the previous command):
 +
 [source,role="execute",subs=attributes]
 ----
-What pods in namespasce agent-{user} are in Error state?
+What pods in namespace agent-{user} are in Error state?
 ----
 
 . Get the full pod logs (once in a while you have to ask this question multiple times to get an answer):
@@ -148,10 +148,10 @@ Show me the pod logs for pod build-agent-13ru7o-build-pod.
 How can I fix that issue?
 ----
 
-. Play around some more in the chat.
-.. You could ask LibreChat which tools each of the MCP Servers provides.
-.. You could try to delete some pods in namespace `agent-{user}`. Why can/can't you delete pods in the `agent-{user}` namespace?
-.. Can you delete pods in the `mcp-openshift-{user}` namespace? Why or why not?
+. Feel free to explore more tasks you can ask the LLM to do.
+.. You could ask which tools each of the MCP servers provides.
+.. You could try to delete pods in namespace `agent-{user}`. Why can/can't you delete pods in the `agent-{user}` namespace?
+.. You could try to delete pods in namespace `mcp-openshift-{user}`?  Why can/can't you delete pods in the `mcp-openshift-{user}` namespace?
 
 === Agent Source Code (optional)
 
@@ -161,6 +161,6 @@ This separation of concerns means organizations can build sophisticated AI-power
 
 . In the panel on the right switch to the *Gitea* tab.
 . Navigate to the your user's `mcp` repository if you aren't already there.
-. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app - if you want show the source code and focus on the prompts that the agent is sending to the LLM.
+. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app. Feel free to show the source code and focus on the prompts that the agent is sending to the LLM.
 . You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
-. Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP Servers. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.
+. Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP servers, and the configuration for LibreChat. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.
