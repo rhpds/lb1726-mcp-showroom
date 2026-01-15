@@ -215,7 +215,7 @@ spec:
       name: mcp-registry-config
       key: registry.json
     syncPolicy:
-      interval: "1h"
+      interval: "2m"
   authConfig:
     mode: anonymous # Use "oauth" for production
   databaseConfig:
@@ -314,7 +314,7 @@ The registration annotations are:
 
 === Adding Registry Annotations to MCP Servers
 
-Let's register two of our MCP servers with the registry. We'll intentionally leave the Yardstick server unregistered to demonstrate enforcement later.
+Let's register two of our MCP servers with the registry using ToolHive's automatic registration annotations.
 
 [NOTE]
 ====
@@ -326,7 +326,6 @@ The OpenShift MCP server is deployed in a separate namespace (`mcp-openshift-{us
 ====
 
 [start=7]
-. Remove the *Yardstick* MCP server definition from the Gitea repository by deleting the file `/mcp/helm/mcp-gitea/templates/mcpserver-yardstick.yaml` (select the file and then click the *Delete File* icon). Later we will try to add it back - and this will fail because it will no longer be an allowed MCP server.
 . Update the Gitea MCP server definition (`/mcp/helm/mcp-gitea/templates/mcpserver.yaml`) with registry annotations:
 +
 [source,yaml,role=execute,subs=attributes]
@@ -361,12 +360,12 @@ spec:
   # ... existing spec unchanged
 ----
 
-[start=10]
+[start=9]
 . Commit and push your changes. Wait for ArgoCD to sync the updated MCPServer resources.
 
 === Verifying Registered Servers
 
-[start=11]
+[start=10]
 . Query the registry to see the auto-registered servers:
 +
 [source,sh,role=execute,subs=attributes]
@@ -401,7 +400,7 @@ You should now see two servers registered:
 }
 ----
 
-The registry has automatically discovered and registered the two MCP servers that have the export annotation. The Yardstick server is not registered because it lacks the annotation and the OpenShift MCP server is not registered because it runs in another namespace.
+The registry has automatically discovered and registered the two MCP servers that have the export annotation. The OpenShift MCP server is not registered because it runs in a different namespace.
 
 === Understanding the Registry Output
 
@@ -514,7 +513,7 @@ Now that we have servers registered dynamically, let's create a static approved 
 
 === Updating the Registry ConfigMap
 
-[start=12]
+[start=11]
 . In Gitea, update the ConfigMap (`configmap-mcp-registry-config.yaml`). Edit the file and replace the file contents with this new, updated definition:
 +
 [source,yaml,role=execute]
@@ -701,135 +700,11 @@ data:
 
 This dual-source approach provides flexibility: servers can be discovered automatically while administrators maintain a curated approved list.
 
-== Enabling Registry Enforcement
-
-With our approved server list in the registry, we can now enable enforcement. This will prevent any MCP server deployments that aren't registered.
-
-[start=16]
-. Update the MCPRegistry (`mcpregistry.yaml`) to enable enforcement by adding `enforceServers: true`:
-+
-[source,yaml,role=execute,subs=attributes]
-----
----
-apiVersion: toolhive.stacklok.dev/v1alpha1
-kind: MCPRegistry
-metadata:
-  name: mcp-registry
-  namespace: {{ .Values.namespace }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "2"
-spec:
-  enforceServers: true  # <-- Add this line
-  [...]
-----
-+
-The `enforceServers: true` field tells ToolHive to validate all MCPServer resources in this namespace against the registry catalog.
-
-. Commit and push your changes. ArgoCD will sync the updated MCPRegistry.
-. Once the MCP Registry has been updated you can check that it should now show 4 MCP servers registered:
-[source,sh,role=execute,subs=attributes]
-----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq -r '.servers[].server.name'
-----
-+
-.Sample output
-[source,subs=attributes]
-----
-io.github.stacklok/fetch-mcp-server
-io.github.stacklok/gitea-mcp-server
-com.toolhive.k8s.mcp-gitea-{user}/fetch
-com.toolhive.k8s.mcp-gitea-{user}/gitea
-----
-
-. Verify enforcement is active by checking the MCPRegistry status:
-+
-[source,sh,role=execute,subs=attributes]
-----
-oc get mcpregistry mcp-registry -n mcp-gitea-{user} -o jsonpath='{.status.enforcement}'
-----
-+
-You should see `enabled` or similar status indicating enforcement is active.
-
-== Demonstrating Enforcement
-
-Now let's see enforcement in action. Earlier, we deleted the Yardstick MCP server. Let's try to re-deploy it now that enforcement is enabled.
-
-=== Attempting to Deploy an Unapproved Server
-
-[start=17]
-. In Gitea, recreate the Yardstick MCP server definition. Add file `mcpserver-yardstick.yaml` back to the `/mcp/helm/mcp-gitea/templates/` directory with the following content:
-+
-[source,yaml,role=execute,subs=attributes]
-----
-apiVersion: toolhive.stacklok.dev/v1alpha1
-kind: MCPServer
-metadata:
-  name: yardstick
-  namespace: {{ .Values.namespace }}
-spec:
-  image: ghcr.io/stackloklabs/yardstick/yardstick-server:1.1.0
-  transport: stdio
-  proxyMode: streamable-http
-----
-
-. Commit and push your changes. Wait for ArgoCD to sync.
-
-=== Observing the Blocked Server
-
-[start=19]
-. Check the status of all MCP servers:
-+
-[source,sh,role=execute,subs=attributes]
-----
-oc get mcpservers -n mcp-gitea-{user}
-----
-
-. The Yardstick server should show an error or blocked state. Check its events:
-+
-[source,sh,role=execute,subs=attributes]
-----
-oc describe mcpserver yardstick -n mcp-gitea-{user}
-----
-+
-The events will show a message similar to:
-+
-----
-Warning  EnforcementBlocked  image "ghcr.io/stackloklabs/yardstick/yardstick-server:1.1.0"
-not found in any enforcing registry in namespace "mcp-gitea-{user}"
-----
-
-This demonstrates that:
-
-* The two registered servers (Gitea, Fetch) continue to operate normally
-* The unapproved server (Yardstick) is blocked by enforcement before it can run
-* New server deployments must be added to the registry before they can run
-
-[NOTE]
-====
-The enforcement validation happens at admission time — before the pod is created. This is more secure than runtime enforcement because unapproved code never executes.
-====
-
-=== Resolving the Blocked Server
-
-To allow the Yardstick server, you would need to either:
-
-. *Add registry annotations* to the Yardstick MCPServer resource (same as you did for Gitea and Fetch), OR
-. *Manually add Yardstick* to the ConfigMap catalog with appropriate metadata
-
-Both approaches create an audit trail in Git, ensuring all approved servers are documented and version-controlled.
-
-This demonstrates the complete governance workflow:
-
-* Servers must be added to the registry catalog (via ConfigMap in Git)
-* The registry syncs and makes the server discoverable
-* Enforcement validates deployments against the catalog
-* Only approved images can run in the namespace
-
-=== Integration Patterns
+== Integration Patterns
 
 The registry API enables powerful automation scenarios:
 
-==== CLI Tooling
+=== CLI Tooling
 
 Create scripts that query the registry before operations:
 
@@ -845,7 +720,7 @@ curl -s "${REGISTRY_URL}/registry/v0.1/servers" | \
 
 This reduces manual configuration and ensures consistency.
 
-==== Monitoring Integration
+=== Monitoring Integration
 
 Track registry health with simple checks:
 
@@ -876,15 +751,14 @@ Try these additional exercises to deepen your understanding:
 
 == Summary
 
-In this module, you deployed an MCP Registry and experienced the complete governance workflow:
+In this module, you deployed an MCP Registry and experienced the governance workflow:
 
 * *Empty start*: Deployed a registry with no pre-defined servers
 * *Automatic registration*: Used annotations to register running servers with the registry
 * *Dynamic discovery*: Watched the registry populate automatically with two servers (Gitea and Fetch)
-* *Catalog extraction*: Captured discovered servers as an approved list
-* *Enforcement activation*: Enabled server validation against the registry
-* *Blocked unapproved server*: Saw enforcement prevent the unregistered Yardstick server from running
+* *Catalog creation*: Created an approved server catalog in the ConfigMap
+* *API exploration*: Queried the registry API to discover available servers
 
 You also learned that the ToolHive registry controller only discovers MCPServers within its own namespace, which is an important architectural consideration when planning your MCP deployment topology.
 
-This foundation enables your organization to scale AI tool adoption while maintaining control, visibility, and compliance. The enforcement capability ensures that governance isn't just documentation — it's actively enforced at deployment time.
+This foundation enables your organization to scale AI tool adoption while maintaining control, visibility, and compliance. The registry provides a central catalog for discovering and documenting AI capabilities across your organization.
