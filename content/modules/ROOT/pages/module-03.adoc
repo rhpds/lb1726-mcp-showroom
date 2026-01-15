@@ -1,4 +1,9 @@
-= MCP Server Management
+= MCP server management
+
+[NOTE]
+====
+*Prerequisites:* Complete xref:module-01.adoc[Module 1: Lab Setup] before starting this module.
+====
 
 In the previous module, you experienced MCP in action — an autonomous agent diagnosing pipeline failures and creating issues, plus interactive infrastructure queries through LibreChat. The MCP servers in that demo were pre-configured for ease of use, with all tools enabled and minimal security constraints.
 
@@ -11,9 +16,9 @@ You will learn how to:
 * *Deploy additional MCP servers* to extend AI capabilities
 * *Understand the architecture* including ToolHive, transports, authentication, and the emerging MCP registry ecosystem
 
-== Tool Filtering: Implementing Least Privilege
+== Tool filtering: Implementing least privilege
 
-=== Why Tool Filtering Matters
+=== Why tool filtering matters
 
 The OpenShift MCP Server you used in Module 2 exposes 23 tools — including `pods_delete`, `resources_delete`, and `pods_exec`. While these are useful for troubleshooting, they represent significant risk if an AI agent (or a malicious prompt injection attack) decides to use them inappropriately.
 
@@ -27,7 +32,7 @@ Consider the business implications:
 
 *Principle of Least Privilege*:: Just like human users, AI agents should have only the permissions they need. The pipeline failure agent only needs to read logs and list resources — it doesn't need delete capabilities.
 
-=== Understanding the GitOps Workflow
+=== Understanding the GitOps workflow
 
 Before we make changes to the MCP server configuration, it's important to understand how this lab environment is managed. This lab uses *GitOps* — a modern approach to infrastructure and application management where Git serves as the single source of truth for your desired system state.
 
@@ -54,7 +59,7 @@ This lab environment is managed by *OpenShift GitOps*, Red Hat's supported distr
 
 . *Sync happens automatically* — ArgoCD polls your repository approximately every 30 seconds. When you commit a change, you'll typically see it reflected in the cluster within a minute.
 
-==== Your Gitea Repository Structure
+==== Your Gitea repository structure
 
 Your `{user}/mcp` repository contains everything needed to run the lab environment. Let's understand its structure:
 
@@ -88,7 +93,7 @@ Your `{user}/mcp` repository contains everything needed to run the lab environme
 
 Each component is packaged as a Helm chart. Helm is a package manager for Kubernetes that uses templates to generate Kubernetes manifests. The `values.yaml` file contains configuration, and the `templates/` directory contains the actual Kubernetes resource definitions.
 
-==== The Workflow You'll Use
+==== The workflow you'll use
 
 Throughout this module, you'll make changes using this workflow:
 
@@ -118,7 +123,7 @@ GitOps is particularly valuable for MCP server management:
 
 Now that you understand how changes flow from Git to the cluster, let's create a tool filter configuration.
 
-=== Hands-On: Creating a Tool Filter
+=== Hands-on: Creating a tool filter
 
 ToolHive provides the `MCPToolConfig` custom resource for declarative tool filtering. You define which tools are permitted, and the ToolHive proxy enforces these restrictions at the protocol level — the AI never even sees the filtered tools in its `tools/list` response.
 
@@ -148,6 +153,11 @@ spec:
 
 . Next edit the file `mcpserver.yaml` to pick up the new tool filter.
 . Add this to the `spec` which will allow only the listed tools. This should still be enough for our use agent.
++
+[TIP]
+====
+Add the `toolConfigRef` block in the `spec:` section of your MCPServer, at the same indentation level as `image` and `transport`.
+====
 +
 [source,yaml,role=execute]
 ----
@@ -191,9 +201,9 @@ Error processing tool: [MCP][openshift][pods_delete] tool call failed: Error POS
 
 . You effectively protected your OpenShift cluster from pod deletions and other potentially dangerous operations.
 
-== Telemetry: Observability for AI Operations
+== Telemetry: Observability for AI operations
 
-=== Why MCP Observability Matters
+=== Why MCP observability matters
 
 When AI agents interact with your systems through MCP, you need visibility into what's happening. Without observability, MCP servers are black boxes — you can't answer basic operational questions:
 
@@ -210,7 +220,7 @@ When AI agents interact with your systems through MCP, you need visibility into 
 
 *Security Monitoring*:: Unusual patterns in MCP usage might indicate compromise or abuse. A sudden spike in `pods_delete` calls, even if they're failing due to tool filtering, could indicate an attempted attack.
 
-=== Available Metrics
+=== Available metrics
 
 ToolHive exposes several Prometheus metrics for MCP servers:
 
@@ -220,9 +230,14 @@ ToolHive exposes several Prometheus metrics for MCP servers:
 
 These metrics integrate with OpenShift's built-in monitoring stack, allowing you to create dashboards, alerts, and use the same observability tools you use for other workloads.
 
-=== Hands-On: Enabling Prometheus Metrics
+=== Hands-on: Enabling Prometheus metrics
 
 . Edit the file `mcpserver.yaml` to include this under `spec:`:
++
+[TIP]
+====
+Add this `telemetry:` block under `spec:` at the same indentation level as other spec fields.
+====
 +
 [source,yaml,role=execute]
 ----
@@ -235,8 +250,13 @@ These metrics integrate with OpenShift's built-in monitoring stack, allowing you
 +
 [source,sh,role=execute,subs=attributes]
 ----
-curl https://mcp-openshift-mcp-openshift-{user}.{openshift_cluster_ingress_domain}/metrics
+curl -s https://mcp-openshift-mcp-openshift-{user}.{openshift_cluster_ingress_domain}/metrics
 ----
++
+[TIP]
+====
+The `-s` flags: `-s` suppresses progress output.
+====
 +
 You should see Prometheus-formatted metrics output. This confirms the MCP server is exposing metrics, but Prometheus isn't collecting them yet.
 
@@ -250,7 +270,7 @@ Prometheus uses a pull-based model for metrics collection. Instead of applicatio
 
 In traditional Prometheus deployments, you would manually configure scrape targets in a configuration file. This doesn't scale well in dynamic Kubernetes environments where pods come and go constantly.
 
-==== The ServiceMonitor Custom Resource
+==== The ServiceMonitor custom resource
 
 The *Prometheus Operator* (which powers OpenShift's monitoring stack) solves this with the `ServiceMonitor` custom resource. A ServiceMonitor tells Prometheus:
 
@@ -273,7 +293,7 @@ Here's the flow for MCP server metrics:
 . *Prometheus begins scraping* — Every 30 seconds (or whatever interval you specify), Prometheus fetches metrics from your MCP server.
 . *Metrics become queryable* — You can now query MCP metrics in the OpenShift Console's Observe → Metrics interface, create dashboards, and set up alerts.
 
-==== The ServiceMonitor Manifest Explained
+==== The ServiceMonitor manifest explained
 
 . Let's create the ServiceMonitor. Create a new file `servicemonitor.yaml` in the OpenShift MCP server's `templates` directory:
 +
@@ -306,7 +326,7 @@ spec:
 . Switch to the `mcp-openshift-{user}` project.
 . In the OpenShift Console navigate to *Observe* -> *Metrics* and query for `toolhive_mcp_active_connections` or `toolhive_mcp_requests_total`. If you see "No datapoints found" the service monitor hasn't synced yet. Try again a few seconds later.
 
-== Extending AI Capabilities
+== Extending AI capabilities
 
 One of MCP's strengths is the growing ecosystem of MCP servers. Adding new capabilities to your AI agents is often as simple as deploying another MCP server. 
 
@@ -317,7 +337,7 @@ We are taking a few small shortcuts in the section below. For one, LibreChat has
 Second you are creating the YAML definitions for the additional MCP servers in the Helm Chart for the Gitea MCP server. We do that because you don't have a way to deploy an additional GitOps application using Helm - so we just "abuse" the Gitea MCP server helm chart. In the real world you would create your own Helm Chart for each additional MCP Server and then create a GitOps (ArgoCD) Application to deploy it.
 ====
 
-== Adding a Simple MCP Server: Fetch Service
+== Adding a simple MCP server: Fetch service
 
 In this section, you'll deploy the *Fetch MCP Server* — a lightweight service that enables AI agents to retrieve content from web URLs.
 
@@ -327,7 +347,7 @@ The Fetch MCP server provides a single, focused capability:
 
 While simple, this demonstrates the pattern for adding any MCP server to your environment. The same process applies whether you're adding a Slack notification server, a database query server, or a custom internal tool.
 
-=== Business Value of Web Fetching
+=== Business value of web fetching
 
 The ability to fetch web content opens up powerful use cases for AI agents:
 
@@ -341,7 +361,7 @@ The ability to fetch web content opens up powerful use cases for AI agents:
 
 *Link Validation*:: AI agents can verify that URLs in documentation or configuration files are accessible, identifying broken links before they cause problems.
 
-=== Deploying the Fetch MCP Server
+=== Deploying the Fetch MCP server
 
 . In Gitea, navigate to `{user}/mcp/helm/mcp-gitea`.
 
@@ -378,7 +398,7 @@ Notice the `permissionProfile` setting — this grants the MCP server network ac
 . Wait until GitOps has synced and the Fetch MCP server has been deployed — you can check in namespace `mcp-gitea-{user}` that two new pods are running. The MCP server in the `fetch-0` pod and the ToolHive proxy whose name also starts with `fetch-`.
 . Back in LibreChat, click the *MCP Servers* button and add the new *fetch* server to your session by clicking the orange initialize button. The MCP Server dropdown should now show *3 selected*.
 
-=== Using the Fetch MCP Server
+=== Using the Fetch MCP server
 
 Now let's test the Fetch MCP server with some practical examples (if any question fails simply try to run it again):
 
@@ -436,7 +456,7 @@ But stdio presents a fundamental challenge for Kubernetes deployments:
 
 This is where *ToolHive's stdio bridging* becomes invaluable.
 
-=== How ToolHive Bridges stdio to HTTP
+=== How ToolHive bridges stdio to HTTP
 
 When you deploy an MCP server with `transport: stdio`, ToolHive automatically injects a *proxy sidecar* that bridges the gap between network protocols and process I/O:
 
@@ -519,7 +539,7 @@ What tools does the yardstick MCP server provide? List them with their descripti
 Use the yardstick echo tool to echo back the message "HelloFromOpenShift"
 ----
 
-=== The Bigger Picture
+=== The bigger picture
 
 While Yardstick itself is a simple testing tool, the deployment pattern you just used works for *any* stdio-based MCP server. Consider some examples from the MCP ecosystem:
 
@@ -598,7 +618,7 @@ ToolHive runs a proxy sidecar alongside each MCP server container. For stdio ser
 +
 This means you can use any existing MCP server — even one designed for Claude Desktop — in a Kubernetes environment without modification.
 
-=== RBAC and Authentication
+=== RBAC and authentication
 
 MCP servers need credentials to access the systems they interact with. This lab demonstrates two common patterns:
 
@@ -622,7 +642,7 @@ The token's scope determines what the MCP server can do. A token with read-only 
 * Consider using short-lived tokens where possible
 * Audit credential access through Kubernetes audit logging
 
-=== MCP Registry: Centralized Server Discovery
+=== MCP Registry: Centralized server discovery
 
 As organizations deploy more MCP servers, they face discovery and governance challenges:
 
@@ -644,7 +664,7 @@ Organizations can run private registries to catalog their internal MCP servers. 
 
 Future versions of ToolHive will integrate with registries to enable automatic server discovery — you'll be able to browse available servers and deploy them directly from the registry.
 
-=== Image Signing and Provenance
+=== Image signing and provenance
 
 Supply chain security is critical for MCP servers. When you deploy an MCP server, you're giving it access to your systems. How do you know the container image hasn't been tampered with?
 
@@ -670,7 +690,7 @@ This information helps organizations make informed decisions about which MCP ser
 *Future Enforcement*::
 While current tools support signing and provenance tracking, enforcement is still evolving. Future versions of ToolHive may support policies like "only deploy MCP servers with valid signatures from approved publishers."
 
-=== OAuth/OIDC Authentication: The Future Direction
+=== OAuth/OIDC authentication: The future direction
 
 Current MCP deployments typically use static tokens for authentication. This works but has limitations:
 

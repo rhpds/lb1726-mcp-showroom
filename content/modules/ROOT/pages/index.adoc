@@ -1,12 +1,12 @@
 = {lab_name}
 
-== What You Will Learn in This Lab
+== What you will learn in this lab
 
 This lab provides hands-on experience with MCP in an enterprise Kubernetes environment.
 
 *Estimated total time: 60-90 minutes*
 
-=== Learning Objectives
+=== Learning objectives
 
 By the end of this lab, you will be able to:
 
@@ -17,7 +17,7 @@ By the end of this lab, you will be able to:
 * Set up an MCP Registry for centralized server discovery and governance
 * Apply enterprise security patterns including RBAC and token-based authentication
 
-=== Module Overview
+=== Module overview
 
 *Module 1: Lab Setup* (~5 minutes) — Set up your lab environment for the demo.
 
@@ -60,7 +60,7 @@ MCP was designed with several key objectives in mind:
 
 *Separation of Concerns*:: MCP cleanly separates AI reasoning from tool implementation. The AI focuses on understanding user intent and orchestrating tool calls, while MCP servers handle the specifics of interacting with external systems.
 
-== Business Benefits
+== Business benefits
 
 Organizations adopting MCP for their AI initiatives realize several tangible benefits:
 
@@ -72,11 +72,11 @@ Organizations adopting MCP for their AI initiatives realize several tangible ben
 
 *Improved Operational Efficiency*:: AI-assisted troubleshooting through MCP dramatically reduces mean-time-to-resolution (MTTR). When an AI can directly query logs, check pod status, and analyze error patterns, issues that previously required senior engineers can often be diagnosed by the AI or by junior team members with AI assistance.
 
-== Current Challenges with MCP
+== Current challenges with MCP
 
 While MCP provides a powerful foundation for AI-to-system integration, the protocol is still maturing and organizations should be aware of several challenges when deploying MCP in enterprise environments.
 
-=== Authentication and Authorization
+=== Authentication and authorization
 
 *Security*:: MCP enables fine-grained tool access control with full audit trails. The just recently released https://modelcontextprotocol.io/specification/draft/basic/security_best_practices[MCP Security Specification^] mandates a "progressive, least-privilege scope model" where servers start with "minimal initial scope set... containing only low-risk discovery/read operations" and use "incremental elevation via targeted... challenges when privileged operations are first attempted." However not many MCP Servers implement these features today.
 
@@ -86,7 +86,7 @@ While MCP provides a powerful foundation for AI-to-system integration, the proto
 
 *Multi-Tenant Concerns*:: In shared environments where multiple users interact with the same MCP servers, how do you ensure one user's AI cannot access another user's resources? Without careful configuration, an AI agent could potentially read data or perform actions it shouldn't have access to.
 
-=== Access Control
+=== Access control
 
 *Uncontrolled Write Access*:: By default, most MCP servers expose all their tools — including potentially destructive operations like `pods_delete`, `resources_delete`, or `delete_file`. An AI agent (or a malicious prompt) could invoke these tools without any guardrails.
 
@@ -94,7 +94,7 @@ While MCP provides a powerful foundation for AI-to-system integration, the proto
 
 *No Built-in RBAC*:: MCP itself doesn't define role-based access control. There's no standard way to say "this agent can read pods but not delete them" at the protocol level. Organizations must implement access control through external mechanisms.
 
-=== Operational Concerns
+=== Operational concerns
 
 *Observability Gaps*:: Without additional tooling, it's difficult to monitor what tools are being called, by whom, how often, and with what parameters. This makes troubleshooting and capacity planning challenging.
 
@@ -102,7 +102,7 @@ While MCP provides a powerful foundation for AI-to-system integration, the proto
 
 *Rate Limiting*:: There's no standard mechanism to prevent runaway AI agents from overwhelming backend systems with tool calls. An agent stuck in a loop could generate thousands of API calls in seconds.
 
-=== Ecosystem Maturity
+=== Ecosystem maturity
 
 *Inconsistent Server Quality*:: MCP servers vary widely in implementation quality, error handling, and security posture. Some are production-ready; others are experimental prototypes. There's no certification or quality standard.
 
@@ -110,17 +110,17 @@ While MCP provides a powerful foundation for AI-to-system integration, the proto
 
 *Discovery Challenges*:: Organizations may have dozens of MCP servers deployed across different teams. There's no standard way to discover, catalog, or manage these servers centrally.
 
-== Addressing These Challenges
+== Addressing these challenges
 
 The good news is that the MCP ecosystem is actively developing solutions to these challenges. Several approaches are emerging for enterprise-grade MCP deployments.
 
-=== Tool Filtering
+=== Tool filtering
 
 Rather than exposing all tools from an MCP server, organizations can restrict which tools are available using allowlists. For example, you might allow only read operations (`pods_list`, `pods_log`, `resources_get`) while blocking destructive operations (`pods_delete`, `resources_delete`, `pods_exec`).
 
 In Kubernetes environments, ToolHive provides the `MCPToolConfig` custom resource for declarative tool filtering. You define which tools are permitted, and the ToolHive proxy enforces these restrictions — the AI never even sees the blocked tools.
 
-=== Authentication Integration
+=== Authentication integration
 
 Several patterns are emerging for MCP authentication:
 
@@ -130,7 +130,7 @@ Several patterns are emerging for MCP authentication:
 
 *OAuth/OIDC Support*:: Emerging work on OAuth 2.0 and OpenID Connect integration will enable federated identity and token exchange, allowing user identity to flow through the entire MCP call chain.
 
-=== Observability and Governance
+=== Observability and governance
 
 *Prometheus Metrics*:: ToolHive can expose Prometheus metrics on MCP server activity, including connection counts, request rates, tool invocation counts, and error rates. These metrics integrate with existing Kubernetes monitoring infrastructure.
 
@@ -138,7 +138,7 @@ Several patterns are emerging for MCP authentication:
 
 *Structured Logging*:: MCP servers and proxies can emit structured logs capturing every tool invocation with full parameter details, enabling comprehensive audit trails.
 
-=== MCP Gateway and Registry
+=== MCP gateway and registry
 
 For larger deployments, centralized management becomes essential:
 
@@ -148,7 +148,7 @@ For larger deployments, centralized management becomes essential:
 
 *Provenance Tracking*:: The registry can track container image signatures and verification status, ensuring only approved and verified MCP server images are deployed.
 
-=== This Lab's Approach
+=== This lab's approach
 
 Modules 3 and 4 of this lab demonstrate several of these enterprise hardening techniques hands-on:
 
@@ -158,7 +158,7 @@ Modules 3 and 4 of this lab demonstrate several of these enterprise hardening te
 * *Token Authentication*: The Gitea MCP Server is already configured with a personal access token scoped to your user
 * *MCP Registry*: You'll deploy a registry for centralized server discovery and governance
 
-== MCP Architecture
+== MCP architecture
 
 At a high level, MCP follows a client-server model with three main components:
 
@@ -168,7 +168,7 @@ At a high level, MCP follows a client-server model with three main components:
 
 *MCP Protocol*:: The standardized communication layer between hosts and servers. Hosts discover available tools, invoke them with parameters, and receive results — all through a consistent JSON-RPC based protocol.
 
-=== Technical Deep Dive
+=== Technical deep dive
 
 For those interested in the implementation details:
 

@@ -1,4 +1,4 @@
-= Lab Setup
+= Lab setup
 
 Your environment has already been pre-configured for you.
 
@@ -24,7 +24,7 @@ Your user's password is the same for all applications.
 . There are two pre-deployed *MCP Servers* in your environment. One to interact with *OpenShift* and one to interact with *Gitea*.
 .. In your chat text window click on the *MCP Servers* button and select both the *openshift* and *gitea* MCP Servers.
 .. Note that there are two additional MCP Servers defined: *fetch* and *yardstick* - you will deploy those much later in the lab. Do not attempt to activate those at this time.
-.. For the two that we are activating, if you see an orange tool icon next to the name make sure to click that and *initialize* the MCP Servers. If the servers are not initialized the LLM can't use them.
+.. For the two that we are activating, if you see an orange tool icon next to the name, make sure to click that and *initialize* the MCP Servers. If the servers are not initialized the LLM can't use them.
 . The *MCP Servers* dropdown label should change to read *2 selected*. This means that your model can now use both predeployed MCP Servers.
 +
 [NOTE]

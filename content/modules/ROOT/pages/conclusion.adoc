@@ -2,11 +2,11 @@
 
 Congratulations on completing this hands-on lab on the Model Context Protocol (MCP) in an enterprise Kubernetes environment. You have gained practical experience with the tools, patterns, and architectural decisions that enable AI-powered automation at scale.
 
-== What You Accomplished
+== What you accomplished
 
 Throughout this lab, you progressed from basic environment setup to deploying a complete MCP infrastructure with governance controls.
 
-=== Module 1: Lab Setup
+=== Module 1: Lab setup
 
 You configured your lab environment, including:
 
@@ -26,7 +26,7 @@ You experienced an end-to-end AI-powered incident response scenario:
 * Used LibreChat to interactively query your infrastructure using natural language
 * Explored how the agent's simple Python code relies entirely on MCP for system integration
 
-=== Module 3: MCP Server Administration
+=== Module 3: MCP server administration
 
 You learned enterprise-grade MCP server management:
 
@@ -37,7 +37,7 @@ You learned enterprise-grade MCP server management:
 * Understood MCP transport protocols (stdio, SSE, streamable HTTP) and their trade-offs
 * Explored RBAC patterns for MCP server authentication
 
-=== Module 4: MCP Registry
+=== Module 4: MCP registry
 
 You deployed centralized governance for AI capabilities:
 
@@ -49,7 +49,7 @@ You deployed centralized governance for AI capabilities:
 * Learned that registry auto-discovery is namespace-scoped
 * Learned the governance workflow from discovery to cataloging
 
-== Key Takeaways
+== Key takeaways
 
 These are the most important concepts from this lab:
 
@@ -63,39 +63,39 @@ These are the most important concepts from this lab:
 
 *5. MCP Registry enables governance at scale*:: As organizations deploy more MCP servers, centralized discovery and governance become essential. The registry provides a searchable catalog, tier classification, and lifecycle management for AI capabilities.
 
-== Business Benefits Realized
+== Business benefits realized
 
 This lab demonstrated tangible business value that organizations can expect from MCP adoption:
 
-=== Reduced Development Time
+=== Reduced development time
 
 You saw how the pipeline failure agent uses MCP to interact with both OpenShift and Gitea without any custom API integration code. The agent's source code focuses purely on business logic while MCP handles connectivity. Organizations report 40-60% reduction in AI integration effort compared to building custom connectors.
 
-=== Faster Incident Response
+=== Faster incident response
 
 The autonomous agent diagnosed a pipeline failure and created a structured issue within seconds of the failure occurring. Traditional manual approaches often take 30 minutes to several hours. This reduction in mean-time-to-resolution (MTTR) translates directly to improved developer productivity and reduced downtime costs.
 
-=== Vendor-Agnostic Architecture
+=== Vendor-agnostic architecture
 
 Because MCP is an open standard, the infrastructure you built works with any MCP-compatible AI client. You can swap underlying AI models without rewriting integrations. This flexibility protects your investment and enables experimentation with different models.
 
-=== Democratized DevOps Knowledge
+=== Democratized DevOps knowledge
 
 Using LibreChat with MCP, you queried Kubernetes resources and Git repositories using natural language. This capability enables junior team members to troubleshoot issues that previously required senior engineer intervention, multiplying the effectiveness of your technical teams.
 
-=== Centralized Governance
+=== Centralized governance
 
 The MCP Registry provides a single point of control for AI tool access. Security and compliance teams can review and approve servers before they appear in the catalog. When auditors ask "what can your AI systems access?", you have a definitive, queryable answer.
 
-=== Reduced Operational Risk
+=== Reduced operational risk
 
 Tool filtering ensures AI agents cannot perform destructive operations even if prompted to do so. The protection you configured prevents accidental or malicious pod deletions, scaling operations, or arbitrary command execution.
 
-== Next Steps
+== Next steps
 
 To continue your MCP journey, consider these paths:
 
-=== Expand Your MCP Server Portfolio
+=== Expand your MCP server portfolio
 
 Explore the growing ecosystem of MCP servers:
 
@@ -104,7 +104,7 @@ Explore the growing ecosystem of MCP servers:
 * File system servers for document processing
 * Custom internal servers for your organization's APIs
 
-=== Implement Advanced Security Patterns
+=== Implement advanced security patterns
 
 As the MCP specification matures, adopt emerging security features:
 
@@ -112,7 +112,7 @@ As the MCP specification matures, adopt emerging security features:
 * Token-based authentication with automatic rotation
 * Per-user identity propagation for audit trails
 
-=== Build Custom MCP Servers
+=== Build custom MCP servers
 
 Create MCP servers for your organization's internal systems:
 
@@ -120,7 +120,7 @@ Create MCP servers for your organization's internal systems:
 * Expose ticketing systems, monitoring tools, and deployment pipelines
 * Standardize access patterns across teams
 
-=== Scale Your Registry
+=== Scale your registry
 
 Extend your registry deployment:
 
@@ -133,22 +133,22 @@ Extend your registry deployment:
 
 These resources provide additional depth on topics covered in this lab:
 
-=== MCP Specification and Standards
+=== MCP specification and standards
 
 * https://modelcontextprotocol.io/introduction[Model Context Protocol Introduction^] - Official MCP documentation and getting started guide
 * https://modelcontextprotocol.io/specification/draft/basic/security_best_practices[MCP Security Best Practices^] - Security specification including progressive scope model and least-privilege principles
 * https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry API Specification^] - Standard API for registry implementations
 
-=== Red Hat and ToolHive Resources
+=== Red Hat and ToolHive resources
 
 * https://developers.redhat.com/articles/2025/10/01/how-deploy-mcp-servers-openshift-using-toolhive[How to Deploy MCP Servers on OpenShift Using ToolHive^] - Red Hat Developer article on ToolHive deployments
 * https://docs.stacklok.com/toolhive[ToolHive Documentation^] - Official ToolHive documentation including custom resources and configuration options
 
-=== Security and Supply Chain
+=== Security and supply chain
 
 * https://www.sigstore.dev/[Sigstore^] - Cryptographic signing and verification for container images and software artifacts
 
-=== MCP Server Ecosystem
+=== MCP server ecosystem
 
 * https://github.com/containers/kubernetes-mcp-server[Kubernetes MCP Server^] - MCP server for Kubernetes and OpenShift operations
 * https://gitea.com/gitea/gitea-mcp[Gitea MCP Server^] - MCP server for Gitea repository operations
@@ -163,7 +163,7 @@ Your feedback helps us improve this lab and create better learning experiences.
 
 Please share your thoughts with the lab facilitator or through the feedback channels provided in your training materials.
 
-== Thank You
+== Thank you
 
 Thank you for investing your time in learning about MCP and enterprise AI integration patterns. The skills you developed in this lab position you to lead AI adoption initiatives in your organization, implementing the governance, security, and operational controls that enterprise deployments require.
 

@@ -1,6 +1,11 @@
 = Sovereign SRE Agent Demo
 
-== Explore the Environment
+[NOTE]
+====
+*Prerequisite:* Complete xref:module-01.adoc[Module 1: Lab Setup] before starting this module.
+====
+
+== Explore the environment
 
 CI/CD pipeline failures are inevitable in modern software development, but how organizations respond to them varies dramatically. The traditional approach involves manual log analysis, context-switching between tools, and reliance on tribal knowledge — often resulting in hours of developer time spent on diagnosis before any fix can begin. Studies show that unplanned work like pipeline failures consumes 20-40% of engineering capacity in many organizations.
 
@@ -153,7 +158,7 @@ How can I fix that issue?
 .. You could try to delete pods in namespace `agent-{user}`. Why can/can't you delete pods in the `agent-{user}` namespace?
 .. You could try to delete pods in namespace `mcp-openshift-{user}`?  Why can/can't you delete pods in the `mcp-openshift-{user}` namespace?
 
-=== Agent Source Code (optional)
+=== Agent source code (optional)
 
 Looking at the agent's source code reveals an important business insight: the code is remarkably simple. The agent doesn't contain complex API integration logic for OpenShift or Gitea — MCP handles all of that. The agent focuses purely on the business logic: "when a failure is reported, investigate it and create an issue."
 

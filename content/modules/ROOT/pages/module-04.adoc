@@ -1,10 +1,15 @@
-= MCP Registry
+= MCP registry
+
+[NOTE]
+====
+*Prerequisites:* Complete xref:module-01.adoc[Module 1], and xref:module-03.adoc[Module 3] before starting this module.
+====
 
 In the previous module, you deployed and configured individual MCP servers — adding tool filters, enabling telemetry, and extending AI capabilities with new servers. As organizations scale their AI initiatives, a new challenge emerges: how do you manage dozens or hundreds of MCP servers across teams, environments, and use cases?
 
 This module introduces the *MCP Registry* — a centralized catalog for discovering, governing, and managing MCP servers at enterprise scale. You will learn how to deploy your own registry, populate it with approved servers, and explore the governance patterns that make AI tool management tractable.
 
-== What is an MCP Registry?
+== What is an MCP registry?
 
 An MCP Registry is a centralized catalog that indexes all available MCP servers in your organization. Think of it as an "app store" for AI capabilities — a searchable, documented, governed collection of tools that AI agents can discover and use.
 
@@ -18,11 +23,11 @@ The registry provides:
 
 *Dynamic Discovery*:: The registry can aggregate both manually-curated server entries and automatically-discovered running instances, keeping the catalog current.
 
-=== Business Value of MCP Registries
+=== Business value of MCP registries
 
 The value of a registry becomes clear as MCP adoption grows. Without centralized management, organizations face fragmented tool access, duplicated efforts, and governance blind spots.
 
-==== For Decision Makers
+==== For decision makers
 
 *Centralized Governance*:: A single point of control for approving or deprecating AI tool access. Security and compliance teams can review and approve servers before they appear in the catalog.
 
@@ -32,7 +37,7 @@ The value of a registry becomes clear as MCP adoption grows. Without centralized
 
 *Compliance Enablement*:: Demonstrate to auditors that AI tool access is controlled, documented, and follows your organization's change management processes.
 
-==== For Platform Engineers
+==== For platform engineers
 
 *Reduced Configuration Drift*:: The registry is the single source of truth for server endpoints and configuration. No more hunting through wikis or Slack channels for connection details.
 
@@ -42,7 +47,7 @@ The value of a registry becomes clear as MCP adoption grows. Without centralized
 
 *Observability Foundation*:: Registry metadata can enrich monitoring dashboards — track which servers are available, their versions, and usage patterns.
 
-==== For Developers
+==== For developers
 
 *Self-Service Discovery*:: Browse available AI tools without asking colleagues. The registry documents what's available, what each server does, and how to connect.
 
@@ -52,11 +57,11 @@ The value of a registry becomes clear as MCP adoption grows. Without centralized
 
 *Reduced Duplication*:: Before building a new MCP server, check the registry. Someone may have already created what you need.
 
-== Setting up Your MCP Registry
+== Setting up your MCP registry
 
 Now let's deploy a working MCP Registry in your OpenShift environment.
 
-=== Database Backend
+=== Database backend
 
 The MCP Registry needs persistent storage to maintain the server catalog, support efficient queries, and enable future features like usage analytics. We use PostgreSQL, deployed via the CloudNativePG operator — a production-grade solution that handles clustering, automated backups, and failover.
 
@@ -114,7 +119,7 @@ spec:
           COMMIT;
 ----
 
-=== Preparing the Server Catalog
+=== Preparing the server catalog
 
 The registry needs a `ConfigMap` to store its server catalog. We'll start with an empty catalog and let ToolHive's automatic discovery populate it with running servers.
 
@@ -143,7 +148,7 @@ data:
 +
 Notice the `servers` object is empty. We'll populate it later using automatic server discovery.
 
-=== Managing Credentials Securely
+=== Managing credentials securely
 
 Database credentials are stored as a Kubernetes secret. In Kubernetes, secrets are base64-encoded (not encrypted by default, though OpenShift encrypts them at rest in etcd). The key principle: never store credentials in ConfigMaps or commit them to Git in plain text.
 
@@ -178,7 +183,7 @@ stringData:
   migrator-password: migrator_password
 ----
 
-=== Creating the Registry Service
+=== Creating the registry service
 
 The `MCPRegistry` custom resource is the heart of the deployment. When you create this resource, the ToolHive operator:
 
@@ -233,7 +238,7 @@ spec:
       key: migrator-password
 ----
 
-=== Exposing the Registry API
+=== Exposing the registry API
 
 [start=5]
 . In order to be able to test the registry add a `Route` so that we can access the registry from outside our cluster.
@@ -276,7 +281,7 @@ For production deployments, consider these additional security measures:
 * *Rate limiting*: Prevent abuse of the API
 ====
 
-=== Verifying the Empty Registry
+=== Verifying the empty registry
 
 Once all resources are deployed, you can query the registry API to verify it's working correctly.
 
@@ -302,7 +307,7 @@ You should see an empty servers array:
 
 The registry is running but has no servers registered yet. Next, we'll use ToolHive's automatic server registration feature to populate it.
 
-== Registering MCP Servers with the Registry
+== Registering MCP servers with the registry
 
 ToolHive supports automatic server registration through annotations on MCPServer resources. When an MCPServer has the `toolhive.stacklok.dev/registry-export: "true"` annotation, the registry controller automatically discovers and registers it.
 
@@ -312,7 +317,7 @@ The registration annotations are:
 * `toolhive.stacklok.dev/registry-description` — Human-readable description for the registry
 * `toolhive.stacklok.dev/registry-url` — The registry URL to register with
 
-=== Adding Registry Annotations to MCP Servers
+=== Adding registry annotations to MCP servers
 
 Let's register two of our MCP servers with the registry using ToolHive's automatic registration annotations.
 
@@ -362,7 +367,7 @@ spec:
 [start=9]
 . Commit and push your changes. Wait for ArgoCD to sync the updated MCPServer resources.
 
-=== Verifying Registered Servers
+=== Verifying registered servers
 
 [start=10]
 . Query the registry to see the auto-registered servers:
@@ -401,7 +406,7 @@ You should now see two servers registered:
 
 The registry has automatically discovered and registered the two MCP servers that have the export annotation. The OpenShift MCP server is not registered because it runs in a different namespace.
 
-=== Understanding the Registry Output
+=== Understanding the registry output
 
 The JSON response from the registry API provides comprehensive information about each registered server:
 
@@ -415,15 +420,15 @@ The JSON response from the registry API provides comprehensive information about
 
 *Server Count*:: The `metadata.count` field shows the total number of servers in the registry — useful for monitoring catalog growth and ensuring expected servers are present.
 
-== Exploring MCP Registry Capabilities
+== Exploring MCP registry capabilities
 
 Now that your registry is operational, let's explore what you can do with it. These exercises demonstrate the practical value of having a centralized server catalog.
 
-=== Querying the Registry API
+=== Querying the registry API
 
 The registry API follows REST conventions. Here are some useful queries:
 
-==== List All Server Names
+==== List all server names
 
 Get a quick view of what's available:
 
@@ -445,7 +450,7 @@ This is useful for:
 * *Scripting*: Automation can iterate over available servers
 * *Inventory checks*: Verify expected servers are registered
 
-==== Get Full Server Details
+==== Get full server details
 
 Retrieve complete information about the Fetch MCP server:
 
@@ -456,11 +461,11 @@ curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}
 
 This provides all configuration details in one place — no hunting through multiple sources.
 
-=== Governance Workflows
+=== Governance workflows
 
 The registry enables structured governance of AI tool access. Here are patterns you can implement:
 
-==== Adding a New Approved Server
+==== Adding a new approved server
 
 When a team wants to introduce a new MCP server:
 
@@ -472,7 +477,7 @@ When a team wants to introduce a new MCP server:
 
 This workflow ensures controlled introduction of new AI capabilities with an audit trail in Git.
 
-==== Server Lifecycle Management
+==== Server lifecycle management
 
 Use the `status` field to communicate server lifecycle:
 
@@ -482,7 +487,7 @@ Use the `status` field to communicate server lifecycle:
 
 Clients can filter on status to avoid deprecated servers. This enables safe transitions when retiring old capabilities.
 
-==== Tier-Based Access Control
+==== Tier-based access control
 
 The `tier` field enables risk-based policies:
 
@@ -492,7 +497,7 @@ The `tier` field enables risk-based policies:
 
 Production environments might only permit "Official" tier servers, while development environments allow broader access.
 
-==== Enforcing Approved Servers Only
+==== Enforcing approved servers only
 
 The governance patterns above — tier classification, lifecycle status, and approval workflows — are informational by default. The registry documents which servers are approved, but nothing prevents someone from deploying an unapproved server.
 
@@ -506,11 +511,11 @@ This addresses several enterprise requirements:
 
 *Change Management*:: Adding new AI capabilities requires updating the registry — creating an auditable change record in Git.
 
-== Integration Patterns
+== Integration patterns
 
 The registry API enables powerful automation scenarios:
 
-=== CLI Tooling
+=== CLI tooling
 
 Create scripts that query the registry before operations:
 
@@ -526,7 +531,7 @@ curl -s "${REGISTRY_URL}/registry/v0.1/servers" | \
 
 This reduces manual configuration and ensures consistency.
 
-=== Monitoring Integration
+=== Monitoring integration
 
 Track registry health with simple checks:
 
@@ -544,7 +549,7 @@ fi
 
 This can integrate with Prometheus AlertManager or other monitoring systems.
 
-=== Ideas for Further Exploration
+=== Ideas for further exploration
 
 Try these additional exercises to deepen your understanding:
 
