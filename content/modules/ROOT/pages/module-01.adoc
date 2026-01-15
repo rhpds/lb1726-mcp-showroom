@@ -67,6 +67,8 @@ This is a limitation of the rather simple Python code that makes up our agent - 
 
 == Gitea
 
+This lab environment uses Gitea to store all GitOps and source code artifacts. The reason we are using Gitea and not GitHub or GitLab is that it is much simpler to set up - and we are able to pre-configure the users and repositories automatically - no forking repositories, creating tokens, etc. required.
+
 . On the right panel switch to the *Gitea* tab.
 . Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
 . Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.

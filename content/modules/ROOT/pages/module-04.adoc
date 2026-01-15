@@ -12,7 +12,7 @@ The registry provides:
 
 *Centralized Catalog*:: A single source of truth listing every MCP server available in your organization, with descriptions, capabilities, and connection information.
 
-*Standardized API*:: A REST API that follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification^], enabling programmatic discovery by tools, automation, and AI clients.
+*Standardized API*:: A REST API that follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification^], enabling programmatic discovery by tools, automation, and AI clients. This means that while this lab is using ToolHive the skills you learn are transferable to any other MCP registry that follows this specification.
 
 *Rich Metadata*:: Each server entry includes detailed information — what tools it provides, what environment variables it needs, what transport it uses, and its governance status.
 
@@ -54,7 +54,7 @@ The value of a registry becomes clear as MCP adoption grows. Without centralized
 
 == Setting up Your MCP Registry
 
-Now let's deploy a working MCP Registry in your OpenShift environment. This hands-on section walks through each component, explaining both the "what" and the "why."
+Now let's deploy a working MCP Registry in your OpenShift environment.
 
 === Database Backend
 
@@ -76,10 +76,9 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   instances: 1
-  # imageName: registry.developers.openshift.com/cnpg/postgresql-16:latest
   storage:
     size: 1Gi
-    # storageClass: ocs-external-storagecluster-ceph-rbd
+    storageClass: ocs-external-storagecluster-ceph-rbd
   bootstrap:
     initdb:
       database: registry
@@ -115,7 +114,7 @@ spec:
 
 === Defining Your Server Catalog
 
-The next step is to define which MCP servers should appear in your registry. This ConfigMap contains your curated catalog of approved servers — think of it as your organization's "app store" for AI tools.
+The next step is to define which MCP servers should appear in your registry. This `ConfigMap` contains your curated catalog of approved servers — think of it as your organization's "app store" for AI tools.
 
 The ToolHive registry format uses a JSON schema with rich metadata for each server:
 
@@ -300,7 +299,7 @@ data:
           "code-management",
           "api"
         ],
-        "image": "docker.gitea.com/gitea-mcp-server:latest",
+        "image": "quay.io/rhpds/gitea-mcp-server:latest",
         "permissions": {
           "network": {
             "outbound": {}
@@ -332,7 +331,7 @@ data:
 
 === Managing Credentials Securely
 
-Database credentials are stored as a Kubernetes Secret. In Kubernetes, Secrets are base64-encoded (not encrypted by default, though OpenShift encrypts them at rest in etcd). The key principle: never store credentials in ConfigMaps or commit them to Git in plain text.
+Database credentials are stored as a Kubernetes secret. In Kubernetes, secrets are base64-encoded (not encrypted by default, though OpenShift encrypts them at rest in etcd). The key principle: never store credentials in ConfigMaps or commit them to Git in plain text.
 
 [NOTE]
 ====
@@ -342,7 +341,7 @@ In production environments, integrate with dedicated secret management solutions
 * *External Secrets Operator*: Sync secrets from AWS Secrets Manager, Azure Key Vault, GCP Secret Manager
 * *Sealed Secrets*: Encrypt secrets for safe Git storage
 
-For this lab, we use a simple Secret for convenience, but the security reminder in the YAML comments is important.
+For this lab, we use a simple secret for convenience, but the security reminder in the YAML comments is important.
 ====
 
 [start=3]
@@ -416,21 +415,6 @@ spec:
 
 === Exposing the Registry API
 
-The Route makes the registry API accessible from outside the OpenShift cluster. This enables several use cases:
-
-* *Developer laptops* can query available servers without cluster access
-* *CI/CD pipelines* can discover server endpoints programmatically
-* *External AI clients* can auto-configure based on registry contents (future capability)
-
-[TIP]
-====
-For production deployments, consider these additional security measures:
-
-* *Authentication*: Add an OAuth proxy or mTLS for client authentication
-* *Network policies*: Restrict which source IPs can reach the registry
-* *Rate limiting*: Prevent abuse of the API
-====
-
 [start=5]
 . In order to be able to test the registry add a `Route` so that we can access the registry from outside our cluster.
 Add file `route-mcpregistry.yaml` to the `templates` directory:
@@ -455,12 +439,27 @@ spec:
   wildcardPolicy: None
 ----
 
+The route makes the registry API accessible from outside the OpenShift cluster. This enables several use cases:
+
+* *Developer laptops* can query available servers without cluster access
+* *CI/CD pipelines* can discover server endpoints programmatically
+* *External AI clients* can auto-configure based on registry contents (future capability)
+
+[TIP]
+====
+For production deployments, consider these additional security measures:
+
+* *Authentication*: Add an OAuth proxy or mTLS for client authentication
+* *Network policies*: Restrict which source IPs can reach the registry
+* *Rate limiting*: Prevent abuse of the API
+====
+
 === Testing the Registry
 
 Once all resources are deployed, you can query the registry API to verify it's working correctly.
 
 [start=6]
-. Once everything has synced to your namespace test that your registry is working (if you don't have `jq` available just omit that part):
+. Once everything has synced to your namespace, test that your registry is working (if you don't have `jq` available just omit that part):
 +
 [source,sh,role=execute,subs=attributes]
 ----
@@ -649,6 +648,140 @@ The `tier` field enables risk-based policies:
 
 Production environments might only permit "Official" tier servers, while development environments allow broader access.
 
+==== Enforcing Approved Servers Only
+
+The governance patterns above — tier classification, lifecycle status, and approval workflows — are informational by default. The registry documents which servers are approved, but nothing prevents someone from deploying an unapproved server.
+
+ToolHive provides *registry enforcement* to close this gap. When enabled, the operator validates that any MCPServer deployed in the namespace uses an image that exists in the registry catalog. Unapproved servers are rejected before they can run.
+
+This addresses several enterprise requirements:
+
+*Compliance*:: Auditors can verify that only approved AI tools are deployed. The registry serves as the authoritative list of permitted capabilities.
+
+*Shadow AI Prevention*:: Teams cannot deploy random MCP servers from the internet. All AI tool access must go through the approval process.
+
+*Change Management*:: Adding new AI capabilities requires updating the registry — creating an auditable change record in Git.
+
+== Enabling Registry Enforcement
+
+Now let's enable enforcement on your registry. This requires adding a single field to the MCPRegistry resource.
+
+[start=8]
+. Update the MCPRegistry to enable enforcement. In Gitea, edit the `mcpregistry.yaml` file in your Helm chart templates and add `enforceServers: true`:
++
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPRegistry
+metadata:
+  name: mcp-registry
+  namespace: {{ .Values.namespace }}
+spec:
+  enforceServers: true  # <-- Add this line
+  displayName: "ToolHive Official Registry (Git)"
+  registries:
+    - name: rh-one-mcp
+      format: toolhive
+      configMapRef:
+        name: rh-one-mcp
+        key: registry.json
+      syncPolicy:
+        interval: "1h"
+  databaseConfig:
+    host: mcp-registry-db-rw.{{ .Values.namespace }}.svc.cluster.local
+    port: 5432
+    user: db_app
+    migrationUser: db_migrator
+    database: registry
+    sslMode: require
+    dbAppUserPasswordSecretRef:
+      name: mcp-registry-db-password
+      key: user-password
+    dbMigrationUserPasswordSecretRef:
+      name: mcp-registry-db-password
+      key: migrator-password
+----
++
+The `enforceServers: true` field tells ToolHive to validate all MCPServer resources in this namespace against the registry catalog.
+
+. Commit and push your changes. ArgoCD will sync the updated MCPRegistry.
+. Verify enforcement is active by checking the MCPRegistry status:
++
+[source,sh,role=execute,subs=attributes]
+----
+oc get mcpregistry mcp-registry -n mcp-gitea-{user} -o jsonpath='{.status.enforcement}'
+----
++
+You should see `enabled` or similar status indicating enforcement is active.
+
+== Testing Registry Enforcement
+
+With enforcement enabled, let's verify it works by attempting to deploy an unapproved MCP server.
+
+[start=11]
+. Create a test MCPServer resource that references an image NOT in your registry. Add file `mcpserver-unapproved.yaml` to your templates:
++
+[source,yaml,role=execute,subs=attributes]
+----
+---
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: unapproved-test
+  namespace: {{ .Values.namespace }}
+spec:
+  image: ghcr.io/random-org/random-mcp-server:latest  # Not in registry
+  transport: sse
+  port: 8080
+----
+
+. Commit and push the change. Watch ArgoCD attempt to sync.
+. Observe the rejection. The MCPServer resource will fail to create with an error similar to:
++
+----
+Error: admission webhook "mcpserver.toolhive.stacklok.dev" denied the request:
+image "ghcr.io/random-org/random-mcp-server:latest" not found in any
+enforcing registry in namespace "mcp-gitea-{user}"
+----
++
+This error confirms that:
++
+* The enforcement webhook intercepted the MCPServer creation
+* The image was checked against the registry catalog
+* The deployment was blocked because the image isn't approved
+
+. Clean up by removing or commenting out the `mcpserver-unapproved.yaml` file.
+
+[NOTE]
+====
+The enforcement validation happens at admission time — before the pod is created. This is more secure than runtime enforcement because unapproved code never executes.
+====
+
+== Deploying Registry-Approved Servers
+
+Now let's deploy a server that IS in the registry to see the successful path.
+
+[start=15]
+. First, verify the Kubernetes MCP server is in your registry:
++
+[source,sh,role=execute,subs=attributes]
+----
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | \
+  jq '.servers[] | select(.server.name | contains("kubernetes")) | .server.packages[].identifier'
+----
++
+This returns the approved image: `quay.io/containers/kubernetes_mcp_server:latest-linux-amd64`
+
+. Create an MCPServer using this approved image. The server will deploy successfully because the image exists in the enforcing registry.
+
+This demonstrates the complete governance workflow:
+
+* Servers must be added to the registry catalog (via ConfigMap in Git)
+* The registry syncs and makes the server discoverable
+* Enforcement validates deployments against the catalog
+* Only approved images can run in the namespace
+
 === Integration Patterns
 
 The registry API enables powerful automation scenarios:
@@ -706,5 +839,6 @@ In this module, you deployed an MCP Registry that provides centralized discovery
 * *Automatic discovery*: Running MCPServer instances registered dynamically
 * *Standard API*: REST interface for programmatic access
 * *Governance metadata*: Tier, status, and tags for lifecycle management
+* *Deployment enforcement*: Validation that prevents unapproved servers from running
 
-This foundation enables your organization to scale AI tool adoption while maintaining control, visibility, and compliance.
+This foundation enables your organization to scale AI tool adoption while maintaining control, visibility, and compliance. The enforcement capability ensures that governance isn't just documentation — it's actively enforced at deployment time.

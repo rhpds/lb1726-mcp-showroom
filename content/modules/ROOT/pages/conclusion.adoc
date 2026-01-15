@@ -46,6 +46,8 @@ You deployed centralized governance for AI capabilities:
 * Deployed the MCP Registry using the `MCPRegistry` custom resource
 * Queried the registry API to discover available servers
 * Explored automatic server registration for running MCP server instances
+* Enabled registry enforcement to block unapproved server deployments
+* Tested enforcement by observing a rejected deployment attempt
 * Learned governance patterns including tier classification and lifecycle management
 
 == Key Takeaways
