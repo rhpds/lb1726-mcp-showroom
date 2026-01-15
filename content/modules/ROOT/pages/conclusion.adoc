@@ -45,7 +45,6 @@ You deployed centralized governance for AI capabilities:
 * Deployed an MCP Registry starting with an empty server catalog
 * Added registry annotations to auto-register two MCP servers (Gitea and Fetch)
 * Verified automatic server discovery through the registry API
-* Created an approved server catalog in the ConfigMap
 * Explored the registry API for server discovery and querying
 * Learned that registry auto-discovery is namespace-scoped
 * Learned the governance workflow from discovery to cataloging

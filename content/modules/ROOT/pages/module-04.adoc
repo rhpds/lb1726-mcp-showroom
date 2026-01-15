@@ -318,10 +318,9 @@ Let's register two of our MCP servers with the registry using ToolHive's automat
 
 [NOTE]
 ====
-The OpenShift MCP server is deployed in a separate namespace (`mcp-openshift-{user}`) while the registry runs in `mcp-gitea-{user}`. The ToolHive registry controller only discovers MCPServers in its own namespace, so we cannot auto-register the OpenShift server with this registry. In production, you could either:
+The OpenShift MCP server is deployed in a separate namespace (`mcp-openshift-{user}`) while the registry runs in `mcp-gitea-{user}`. The ToolHive registry controller currently only discovers MCPServers in its own namespace, so we cannot auto-register the OpenShift server with this registry. In production, you could either:
 
 * Deploy a registry in each namespace that needs registration
-* Use static ConfigMap entries to register cross-namespace servers
 * Deploy all related MCP servers in the same namespace as the registry
 ====
 
@@ -507,199 +506,6 @@ This addresses several enterprise requirements:
 
 *Change Management*:: Adding new AI capabilities requires updating the registry — creating an auditable change record in Git.
 
-== Creating the Approved Server Catalog
-
-Now that we have servers registered dynamically, let's create a static approved server list. This creates a permanent record of approved servers that persists even if the running servers are stopped.
-
-=== Updating the Registry ConfigMap
-
-[start=11]
-. In Gitea, update the ConfigMap (`configmap-mcp-registry-config.yaml`). Edit the file and replace the file contents with this new, updated definition:
-+
-[source,yaml,role=execute]
-----
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mcp-registry-config
-  namespace: {{ .Values.namespace}}
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-data:
-  registry.json: |
-    {
-        "$schema": "https://raw.githubusercontent.com/stacklok/toolhive/main/pkg/registry/data/schema.json",
-        "version": "1.0.0",
-        "last_updated": "2025-01-14T00:00:00Z",
-        "servers": {
-            "fetch-mcp-server": {
-                "description": "Fetch MCP Server for retrieving and processing web content",
-                "tier": "Community",
-                "status": "Active",
-                "transport": "streamable-http",
-                "tools": [
-                    "fetch_url",
-                    "fetch_html",
-                    "fetch_markdown",
-                    "fetch_text"
-                ],
-                "metadata": {
-                    "stars": 50,
-                    "pulls": 1000,
-                    "last_updated": "2025-01-14T00:00:00Z"
-                },
-                "repository_url": "https://github.com/stackloklabs/gofetch",
-                "tags": [
-                    "web",
-                    "fetch",
-                    "content",
-                    "http"
-                ],
-                "image": "ghcr.io/stackloklabs/gofetch/server:1.0.2",
-                "permissions": {
-                    "network": {
-                        "outbound": {}
-                    }
-                },
-                "env_vars": []
-            },
-            "gitea-mcp-server": {
-                "description": "Gitea MCP Server is an integration plugin designed to connect Gitea with Model Context Protocol (MCP) systems. This allows for seamless command execution and repository management through an MCP-compatible chat interface.",
-                "tier": "Official",
-                "status": "Active",
-                "transport": "streamable-http",
-                "tools": [
-                    "get_my_user_info",
-                    "create_repo",
-                    "fork_repo",
-                    "search_repos",
-                    "search_users",
-                    "search_org_teams",
-                    "get_gitea_mcp_server_version",
-                    "repo_list",
-                    "repo_get",
-                    "repo_delete",
-                    "repo_update",
-                    "branch_list",
-                    "branch_create",
-                    "branch_delete",
-                    "branch_get",
-                    "commit_get",
-                    "commit_list",
-                    "file_get",
-                    "file_create",
-                    "file_update",
-                    "file_delete",
-                    "file_list",
-                    "tag_list",
-                    "tag_create",
-                    "tag_delete",
-                    "release_list",
-                    "release_get",
-                    "release_create",
-                    "release_delete",
-                    "issue_list",
-                    "issue_get",
-                    "issue_create",
-                    "issue_update",
-                    "issue_delete",
-                    "issue_comment_add",
-                    "issue_comment_list",
-                    "pull_list",
-                    "pull_get",
-                    "pull_create",
-                    "pull_update",
-                    "pull_merge",
-                    "pull_review_add",
-                    "pull_review_list",
-                    "label_list",
-                    "label_create",
-                    "label_update",
-                    "label_delete",
-                    "milestone_list",
-                    "milestone_get",
-                    "milestone_create",
-                    "milestone_update",
-                    "milestone_delete",
-                    "workflow_list",
-                    "workflow_get",
-                    "workflow_run",
-                    "workflow_run_list",
-                    "workflow_run_get",
-                    "workflow_run_logs",
-                    "workflow_job_list",
-                    "workflow_job_logs",
-                    "workflow_artifact_list",
-                    "workflow_artifact_download",
-                    "workflow_secret_list",
-                    "workflow_secret_create",
-                    "workflow_secret_update",
-                    "workflow_secret_delete",
-                    "workflow_variable_list",
-                    "workflow_variable_create",
-                    "workflow_variable_update",
-                    "workflow_variable_delete",
-                    "wiki_list",
-                    "wiki_get",
-                    "wiki_create",
-                    "wiki_update",
-                    "wiki_delete"
-                ],
-                "metadata": {
-                    "stars": 1,
-                    "pulls": 100000,
-                    "last_updated": "2025-12-18T16:43:00Z"
-                },
-                "repository_url": "https://gitea.com/gitea/gitea-mcp",
-                "tags": [
-                    "git",
-                    "version-control",
-                    "repository",
-                    "collaboration",
-                    "devops",
-                    "ci-cd",
-                    "code-management",
-                    "api"
-                ],
-                "image": "quay.io/rhpds/gitea-mcp-server:latest",
-                "permissions": {
-                    "network": {
-                        "outbound": {}
-                    }
-                },
-                "env_vars": [
-                    {
-                        "name": "GITEA_ACCESS_TOKEN",
-                        "description": "Gitea personal access token",
-                        "required": true,
-                        "secret": true
-                    },
-                    {
-                        "name": "GITEA_HOST",
-                        "description": "The URL of the Gitea instance",
-                        "required": false,
-                        "default": "https://gitea.com"
-                    },
-                    {
-                        "name": "GITEA_INSECURE",
-                        "description": "Whether to use insecure mode",
-                        "required": false,
-                        "default": "false"
-                    }
-                ]
-            }
-        }
-    }
-----
-
-. Commit and push the changes. The registry now has both:
-+
-* *Auto-discovered servers* — From MCPServer annotations
-* *Static catalog entries* — From the ConfigMap
-
-This dual-source approach provides flexibility: servers can be discovered automatically while administrators maintain a curated approved list.
-
 == Integration Patterns
 
 The registry API enables powerful automation scenarios:
@@ -748,6 +554,7 @@ Try these additional exercises to deepen your understanding:
 . *Explore the API*: The registry follows the https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md[MCP Registry specification^]. Review the spec to discover additional endpoints and capabilities.
 . *Consider federation*: In a multi-cluster environment, how would you aggregate registries? Each cluster could have its own registry, with a federated view for discovery across environments.
 . *Plan for scale*: As your organization adds more MCP servers, what governance processes would you implement? Consider approval workflows, periodic reviews, and automated compliance checks.
+. *Configure allowed MCP Servers*: Configure the MCP Registry to only allow pre-registered servers thus preventing the deployment of non-sanctioned MCP Servers to the namespace.
 
 == Summary
 
@@ -756,7 +563,6 @@ In this module, you deployed an MCP Registry and experienced the governance work
 * *Empty start*: Deployed a registry with no pre-defined servers
 * *Automatic registration*: Used annotations to register running servers with the registry
 * *Dynamic discovery*: Watched the registry populate automatically with two servers (Gitea and Fetch)
-* *Catalog creation*: Created an approved server catalog in the ConfigMap
 * *API exploration*: Queried the registry API to discover available servers
 
 You also learned that the ToolHive registry controller only discovers MCPServers within its own namespace, which is an important architectural consideration when planning your MCP deployment topology.
