@@ -74,6 +74,8 @@ kind: Cluster
 metadata:
   name: mcp-registry-db
   namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   instances: 1
   storage:
@@ -112,23 +114,12 @@ spec:
           COMMIT;
 ----
 
-=== Defining Your Server Catalog
+=== Preparing the Server Catalog
 
-The next step is to define which MCP servers should appear in your registry. This `ConfigMap` contains your curated catalog of approved servers — think of it as your organization's "app store" for AI tools.
-
-The ToolHive registry format uses a JSON schema with rich metadata for each server:
-
-* *tier*: Classification for governance — "Official" (organization-vetted), "Community" (third-party), "Experimental"
-* *status*: Lifecycle state — "Active", "Deprecated", "Experimental"
-* *tools*: Explicit list of capabilities the server provides — enables informed decisions
-* *tags*: Categorization for searchability — "kubernetes", "git", "database", etc.
-* *image*: Container image reference for deployment
-* *env_vars*: Required environment variables — helps users configure correctly
-
-This metadata enables governance (filter by tier), discovery (search by tags), and operational support (know what tools are available).
+The registry needs a `ConfigMap` to store its server catalog. We'll start with an empty catalog and let ToolHive's automatic discovery populate it with running servers.
 
 [start=2]
-. Create a `ConfigMap` to hold the MCP Registry configuration. Add file `configmap-rh-one-mcp.yaml` to the `templates`:
+. Create an empty `ConfigMap` to hold the MCP Registry configuration. Add file `configmap-mcp-registry-config.yaml` to the `templates`:
 +
 [source,yaml,role=execute,subs=attributes]
 ----
@@ -136,198 +127,21 @@ This metadata enables governance (filter by tier), discovery (search by tags), a
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: rh-one-mcp
+  name: mcp-registry-config
   namespace: {{ .Values.namespace}}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 data:
   registry.json: |
     {
       "$schema": "https://raw.githubusercontent.com/stacklok/toolhive/main/pkg/registry/data/schema.json",
       "version": "1.0.0",
       "last_updated": "2025-01-14T00:00:00Z",
-      "servers": {
-        "kubernetes-mcp-server": {
-          "description": "A powerful and flexible Kubernetes Model Context Protocol (MCP) server implementation with support for Kubernetes and OpenShift",
-          "tier": "Community",
-          "status": "Active",
-          "transport": "sse",
-          "tools": [
-            "configuration_contexts_list",
-            "configuration_view",
-            "events_list",
-            "helm_install",
-            "helm_list",
-            "helm_uninstall",
-            "namespaces_list",
-            "nodes_log",
-            "nodes_stats_summary",
-            "nodes_top",
-            "pods_delete",
-            "pods_exec",
-            "pods_get",
-            "pods_list",
-            "pods_list_in_namespace",
-            "pods_log",
-            "pods_run",
-            "pods_top",
-            "projects_list",
-            "resources_create_or_update",
-            "resources_delete",
-            "resources_get",
-            "resources_list",
-            "resources_scale"
-          ],
-          "metadata": {
-            "stars": 879,
-            "pulls": 100,
-            "last_updated": "2025-12-16T16:23:00Z"
-          },
-          "repository_url": "https://github.com/containers/kubernetes-mcp-server",
-          "tags": [
-            "kubernetes",
-            "infrastructure",
-            "containers",
-            "devops",
-            "observability",
-            "openshift",
-            "service-mesh",
-            "virtualization"
-          ],
-          "image": "quay.io/containers/kubernetes_mcp_server:latest-linux-amd64",
-          "permissions": {
-            "network": {
-              "outbound": {}
-            }
-          },
-          "env_vars": []
-        }
-      },
-      "gitea-mcp-server": {
-        "description": "Gitea MCP Server is an integration plugin designed to connect Gitea with Model Context Protocol (MCP) systems. This allows for seamless command execution and repository management through an MCP-compatible chat interface.",
-        "tier": "Official",
-        "status": "Active",
-        "transport": "streamable-http",
-        "tools": [
-          "get_my_user_info",
-          "create_repo",
-          "fork_repo",
-          "search_repos",
-          "search_users",
-          "search_org_teams",
-          "get_gitea_mcp_server_version",
-          "repo_list",
-          "repo_get",
-          "repo_delete",
-          "repo_update",
-          "branch_list",
-          "branch_create",
-          "branch_delete",
-          "branch_get",
-          "commit_get",
-          "commit_list",
-          "file_get",
-          "file_create",
-          "file_update",
-          "file_delete",
-          "file_list",
-          "tag_list",
-          "tag_create",
-          "tag_delete",
-          "release_list",
-          "release_get",
-          "release_create",
-          "release_delete",
-          "issue_list",
-          "issue_get",
-          "issue_create",
-          "issue_update",
-          "issue_delete",
-          "issue_comment_add",
-          "issue_comment_list",
-          "pull_list",
-          "pull_get",
-          "pull_create",
-          "pull_update",
-          "pull_merge",
-          "pull_review_add",
-          "pull_review_list",
-          "label_list",
-          "label_create",
-          "label_update",
-          "label_delete",
-          "milestone_list",
-          "milestone_get",
-          "milestone_create",
-          "milestone_update",
-          "milestone_delete",
-          "workflow_list",
-          "workflow_get",
-          "workflow_run",
-          "workflow_run_list",
-          "workflow_run_get",
-          "workflow_run_logs",
-          "workflow_job_list",
-          "workflow_job_logs",
-          "workflow_artifact_list",
-          "workflow_artifact_download",
-          "workflow_secret_list",
-          "workflow_secret_create",
-          "workflow_secret_update",
-          "workflow_secret_delete",
-          "workflow_variable_list",
-          "workflow_variable_create",
-          "workflow_variable_update",
-          "workflow_variable_delete",
-          "wiki_list",
-          "wiki_get",
-          "wiki_create",
-          "wiki_update",
-          "wiki_delete"
-        ],
-        "metadata": {
-          "stars": 1,
-          "pulls": 100000,
-          "last_updated": "2025-12-18T16:43:00Z"
-        },
-        "repository_url": "https://gitea.com/gitea/gitea-mcp",
-        "tags": [
-          "git",
-          "version-control",
-          "repository",
-          "collaboration",
-          "devops",
-          "ci-cd",
-          "code-management",
-          "api"
-        ],
-        "image": "quay.io/rhpds/gitea-mcp-server:latest",
-        "permissions": {
-          "network": {
-            "outbound": {}
-          }
-        },
-        "env_vars": [
-          {
-            "name": "GITEA_ACCESS_TOKEN",
-            "description": "Gitea personal access token",
-            "required": true,
-            "secret": true
-          },
-          {
-            "name": "GITEA_HOST",
-            "description": "The URL of the Gitea instance",
-            "required": false,
-            "default": "https://gitea.com"
-          },
-          {
-            "name": "GITEA_INSECURE",
-            "description": "Whether to use insecure mode",
-            "required": false,
-            "default": "false"
-          }
-        ]
-      }
+      "servers": {}
     }
 ----
++
+Notice the `servers` object is empty. We'll populate it later using automatic server discovery.
 
 === Managing Credentials Securely
 
@@ -356,6 +170,8 @@ kind: Secret
 metadata:
   name: mcp-registry-db-password
   namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 type: Opaque
 stringData:
   user-password: app_password
@@ -388,23 +204,27 @@ kind: MCPRegistry
 metadata:
   name: mcp-registry
   namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
-  displayName: "ToolHive Official Registry (Git)"
+  displayName: "{{ .Values.user }} MCP Registry"
   registries:
-    - name: rh-one-mcp
-      format: toolhive
-      configMapRef:
-        name: rh-one-mcp
-        key: registry.json
-      syncPolicy:
-        interval: "1h"
+  - name: mcp-registry
+    format: toolhive
+    configMapRef:
+      name: mcp-registry-config
+      key: registry.json
+    syncPolicy:
+      interval: "1h"
+  authConfig:
+    mode: anonymous # Use "oauth" for production
   databaseConfig:
     host: mcp-registry-db-rw.{{ .Values.namespace }}.svc.cluster.local
     port: 5432
-    user: db_app
-    migrationUser: db_migrator
     database: registry
     sslMode: require
+    user: db_app
+    migrationUser: db_migrator
     dbAppUserPasswordSecretRef:
       name: mcp-registry-db-password
       key: user-password
@@ -427,6 +247,8 @@ kind: Route
 metadata:
   name: mcp-registry
   namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   port:
     targetPort: http
@@ -454,108 +276,123 @@ For production deployments, consider these additional security measures:
 * *Rate limiting*: Prevent abuse of the API
 ====
 
-=== Testing the Registry
+=== Verifying the Empty Registry
 
 Once all resources are deployed, you can query the registry API to verify it's working correctly.
 
 [start=6]
-. Once everything has synced to your namespace, test that your registry is working (if you don't have `jq` available just omit that part):
+. Once everything has synced to your namespace, query the registry to confirm it's empty:
 +
 [source,sh,role=execute,subs=attributes]
 ----
-curl https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+----
++
+You should see an empty servers array:
++
+[source,json]
+----
+{
+  "servers": [],
+  "metadata": {
+    "count": 0
+  }
+}
 ----
 
-=== Automatic Server Registration
+The registry is running but has no servers registered yet. Next, we'll use ToolHive's automatic server registration feature to populate it.
 
-ToolHive's registry controller provides a powerful feature: *automatic discovery of running MCP servers*. The registry doesn't just contain manually-defined entries from your ConfigMap — it also detects and registers MCPServer instances running in your cluster.
+== Registering MCP Servers with the Registry
 
-This dual-source model means:
+ToolHive supports automatic server registration through annotations on MCPServer resources. When an MCPServer has the `toolhive.stacklok.dev/registry-export: "true"` annotation, the registry controller automatically discovers and registers it.
 
-*Static entries*:: Servers defined in your ConfigMap catalog — these can include servers you plan to deploy, external servers, or documentation of servers in other clusters.
+The registration annotations are:
 
-*Dynamic entries*:: Running MCPServer instances are automatically discovered and registered. When you deploy an MCP server (like the Gitea or OpenShift servers from the previous module), it appears in the registry automatically.
+* `toolhive.stacklok.dev/registry-export: "true"` — Enable auto-registration for this server
+* `toolhive.stacklok.dev/registry-description` — Human-readable description for the registry
+* `toolhive.stacklok.dev/registry-url` — The registry URL to register with
 
-The benefits of this approach:
+=== Adding Registry Annotations to MCP Servers
 
-* *Planning ahead*: Document servers in the registry before deployment
-* *Automatic discovery*: Running servers appear without manual registration
-* *Centralized control*: Administrators curate the ConfigMap; the system handles the rest
+Let's register two of our MCP servers with the registry. We'll intentionally leave the Yardstick server unregistered to demonstrate enforcement later.
+
+[NOTE]
+====
+The OpenShift MCP server is deployed in a separate namespace (`mcp-openshift-{user}`) while the registry runs in `mcp-gitea-{user}`. The ToolHive registry controller only discovers MCPServers in its own namespace, so we cannot auto-register the OpenShift server with this registry. In production, you could either:
+
+* Deploy a registry in each namespace that needs registration
+* Use static ConfigMap entries to register cross-namespace servers
+* Deploy all related MCP servers in the same namespace as the registry
+====
 
 [start=7]
-. Once everything has synced to your namespace test that your MCP servers are registered with the MCP registry (if you don't have `jq` available just omit that part):
+. Remove the *Yardstick* MCP server definition from the Gitea repository by deleting the file `/mcp/helm/mcp-gitea/templates/mcpserver-yardstick.yaml` (select the file and then click the *Delete File* icon). Later we will try to add it back - and this will fail because it will no longer be an allowed MCP server.
+. Update the Gitea MCP server definition (`/mcp/helm/mcp-gitea/templates/mcpserver.yaml`) with registry annotations:
++
+[source,yaml,role=execute,subs=attributes]
+----
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: gitea
+  namespace: {{ .Values.namespace }}
+  annotations:
+    toolhive.stacklok.dev/registry-export: "true"
+    toolhive.stacklok.dev/registry-description: "Gitea MCP Server for Gitea repository operations"
+    toolhive.stacklok.dev/registry-url: http://mcp-registry-api.mcp-gitea-{{ .Values.user }}.svc.cluster.local:8080
+spec:
+  # ... existing spec unchanged
+----
+
+. Update the Fetch MCP server definition (`/mcp/helm/mcp-gitea/templates/mcpserver-fetch.yaml`) with registry annotations:
++
+[source,yaml,role=execute,subs=attributes]
+----
+apiVersion: toolhive.stacklok.dev/v1alpha1
+kind: MCPServer
+metadata:
+  name: fetch
+  namespace: {{ .Values.namespace }}
+  annotations:
+    toolhive.stacklok.dev/registry-export: "true"
+    toolhive.stacklok.dev/registry-description: "Fetch MCP Server for web content retrieval"
+    toolhive.stacklok.dev/registry-url: http://mcp-registry-api.mcp-gitea-{{ .Values.user }}.svc.cluster.local:8080
+spec:
+  # ... existing spec unchanged
+----
+
+[start=10]
+. Commit and push your changes. Wait for ArgoCD to sync the updated MCPServer resources.
+
+=== Verifying Registered Servers
+
+[start=11]
+. Query the registry to see the auto-registered servers:
 +
 [source,sh,role=execute,subs=attributes]
 ----
-curl https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
 ----
 +
-.Sample Output
+You should now see two servers registered:
++
 [source,json]
 ----
 {
   "servers": [
     {
       "server": {
-        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-        "name": "io.github.stacklok/kubernetes-mcp-server",
-        "description": "A powerful and flexible Kubernetes Model Context Protocol (MCP) server implementation with support for Kubernetes and OpenShift",
-        "repository": {
-          "url": "https://github.com/containers/kubernetes-mcp-server",
-          "source": "github"
-        },
-        "version": "1.0.0",
-        "packages": [
-          {
-            "registryType": "oci",
-            "identifier": "quay.io/containers/kubernetes_mcp_server:latest-linux-amd64",
-            "transport": {
-              "type": "sse",
-              "url": "http://localhost"
-            }
-          }
-        ],
-        "_meta": {
-          "io.modelcontextprotocol.registry/publisher-provided": {
-            "repository_id": "",
-            "repository_subfolder": "",
-            "repository_type": "github",
-            "repository_url": "https://github.com/containers/kubernetes-mcp-server",
-            "server_meta": "eyJpby5naXRodWIuc3RhY2tsb2siOiB7InF1YXkuaW8vY29udGFpbmVycy9rdWJlcm5ldGVzX21jcF9zZXJ2ZXI6bGF0ZXN0LWxpbnV4LWFtZDY0IjogeyJ0YWdzIjogWyJrdWJlcm5ldGVzIiwgImluZnJhc3RydWN0dXJlIiwgImNvbnRhaW5lcnMiLCAiZGV2b3BzIiwgIm9ic2VydmFiaWxpdHkiLCAib3BlbnNoaWZ0IiwgInNlcnZpY2UtbWVzaCIsICJ2aXJ0dWFsaXphdGlvbiJdLCAidGllciI6ICJDb21tdW5pdHkiLCAidG9vbHMiOiBbImNvbmZpZ3VyYXRpb25fY29udGV4dHNfbGlzdCIsICJjb25maWd1cmF0aW9uX3ZpZXciLCAiZXZlbnRzX2xpc3QiLCAiaGVsbV9pbnN0YWxsIiwgImhlbG1fbGlzdCIsICJoZWxtX3VuaW5zdGFsbCIsICJuYW1lc3BhY2VzX2xpc3QiLCAibm9kZXNfbG9nIiwgIm5vZGVzX3N0YXRzX3N1bW1hcnkiLCAibm9kZXNfdG9wIiwgInBvZHNfZGVsZXRlIiwgInBvZHNfZXhlYyIsICJwb2RzX2dldCIsICJwb2RzX2xpc3QiLCAicG9kc19saXN0X2luX25hbWVzcGFjZSIsICJwb2RzX2xvZyIsICJwb2RzX3J1biIsICJwb2RzX3RvcCIsICJwcm9qZWN0c19saXN0IiwgInJlc291cmNlc19jcmVhdGVfb3JfdXBkYXRlIiwgInJlc291cmNlc19kZWxldGUiLCAicmVzb3VyY2VzX2dldCIsICJyZXNvdXJjZXNfbGlzdCIsICJyZXNvdXJjZXNfc2NhbGUiXSwgInN0YXR1cyI6ICJBY3RpdmUiLCAibWV0YWRhdGEiOiB7InB1bGxzIjogMTAwLCAic3RhcnMiOiA4NzksICJsYXN0X3VwZGF0ZWQiOiAiMjAyNS0xMi0xNlQxNjoyMzowMFoifSwgInBlcm1pc3Npb25zIjogeyJuZXR3b3JrIjogeyJvdXRib3VuZCI6IHt9fX19fX0="
-          }
-        }
-      },
-      "_meta": {}
+        "name": "com.toolhive.k8s.mcp-gitea-{user}/fetch",
+        "description": "Fetch MCP Server for web content retrieval",
+        ...
+      }
     },
     {
       "server": {
-        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-        "name": "com.toolhive.k8s.mcp-gitea-user2/gitea",
-        "description": "Gitea MCP server",
-        "version": "1.0.0",
-        "packages": [
-          {
-            "registryType": "oci",
-            "identifier": "docker.gitea.com/gitea-mcp-server:latest",
-            "version": "latest",
-            "transport": {
-              "type": "streamable-http"
-            }
-          }
-        ],
-        "remotes": [
-          {
-            "type": "streamable-http",
-            "url": "http://mcp-registry-api.mcp-gitea-user2.svc.cluster.local:8080"
-          }
-        ],
-        "_meta": {
-          "io.modelcontextprotocol.registry/publisher-provided": {
-            "server_meta": "eyJpby5naXRodWIuc3RhY2tsb2siOiB7Imh0dHA6Ly9tY3AtcmVnaXN0cnktYXBpLm1jcC1naXRlYS11c2VyMi5zdmMuY2x1c3Rlci5sb2NhbDo4MDgwIjogeyJtZXRhZGF0YSI6IHsia3ViZXJuZXRlc191aWQiOiAiZjEzZDZhMWQtZGI1My00MTQyLTgxZWItYzBkZTNmNjE1MWJmIiwgImt1YmVybmV0ZXNfa2luZCI6ICJNQ1BTZXJ2ZXIiLCAia3ViZXJuZXRlc19uYW1lIjogImdpdGVhIiwgImt1YmVybmV0ZXNfaW1hZ2UiOiAiZG9ja2VyLmdpdGVhLmNvbS9naXRlYS1tY3Atc2VydmVyOmxhdGVzdCIsICJrdWJlcm5ldGVzX25hbWVzcGFjZSI6ICJtY3AtZ2l0ZWEtdXNlcjIiLCAia3ViZXJuZXRlc190cmFuc3BvcnQiOiAic3RyZWFtYWJsZS1odHRwIn19fX0="
-          }
-        }
-      },
-      "_meta": {}
+        "name": "com.toolhive.k8s.mcp-gitea-{user}/gitea",
+        "description": "Gitea MCP Server for Git repository operations",
+        ...
+      }
     }
   ],
   "metadata": {
@@ -563,6 +400,8 @@ curl https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/re
   }
 }
 ----
+
+The registry has automatically discovered and registered the two MCP servers that have the export annotation. The Yardstick server is not registered because it lacks the annotation and the OpenShift MCP server is not registered because it runs in another namespace.
 
 === Understanding the Registry Output
 
@@ -592,7 +431,14 @@ Get a quick view of what's available:
 
 [source,sh,role=execute,subs=attributes]
 ----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.servers[].server.name'
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq -r '.servers[].server.name'
+----
+
+.Example output
+[source,subs=attributes]
+----
+com.toolhive.k8s.mcp-gitea-{user}/fetch
+com.toolhive.k8s.mcp-gitea-{user}/gitea
 ----
 
 This is useful for:
@@ -603,11 +449,11 @@ This is useful for:
 
 ==== Get Full Server Details
 
-Retrieve complete information about a specific server:
+Retrieve complete information about the Fetch MCP server:
 
 [source,sh,role=execute,subs=attributes]
 ----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.servers[] | select(.server.name | contains("kubernetes"))'
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.servers[] | select(.server.name | contains("fetch"))'
 ----
 
 This provides all configuration details in one place — no hunting through multiple sources.
@@ -662,12 +508,205 @@ This addresses several enterprise requirements:
 
 *Change Management*:: Adding new AI capabilities requires updating the registry — creating an auditable change record in Git.
 
+== Creating the Approved Server Catalog
+
+Now that we have servers registered dynamically, let's create a static approved server list. This creates a permanent record of approved servers that persists even if the running servers are stopped.
+
+=== Updating the Registry ConfigMap
+
+[start=12]
+. In Gitea, update the ConfigMap (`configmap-mcp-registry-config.yaml`). Edit the file and replace the file contents with this new, updated definition:
++
+[source,yaml,role=execute]
+----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-registry-config
+  namespace: {{ .Values.namespace}}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  registry.json: |
+    {
+        "$schema": "https://raw.githubusercontent.com/stacklok/toolhive/main/pkg/registry/data/schema.json",
+        "version": "1.0.0",
+        "last_updated": "2025-01-14T00:00:00Z",
+        "servers": {
+            "fetch-mcp-server": {
+                "description": "Fetch MCP Server for retrieving and processing web content",
+                "tier": "Community",
+                "status": "Active",
+                "transport": "streamable-http",
+                "tools": [
+                    "fetch_url",
+                    "fetch_html",
+                    "fetch_markdown",
+                    "fetch_text"
+                ],
+                "metadata": {
+                    "stars": 50,
+                    "pulls": 1000,
+                    "last_updated": "2025-01-14T00:00:00Z"
+                },
+                "repository_url": "https://github.com/stackloklabs/gofetch",
+                "tags": [
+                    "web",
+                    "fetch",
+                    "content",
+                    "http"
+                ],
+                "image": "ghcr.io/stackloklabs/gofetch/server:1.0.2",
+                "permissions": {
+                    "network": {
+                        "outbound": {}
+                    }
+                },
+                "env_vars": []
+            },
+            "gitea-mcp-server": {
+                "description": "Gitea MCP Server is an integration plugin designed to connect Gitea with Model Context Protocol (MCP) systems. This allows for seamless command execution and repository management through an MCP-compatible chat interface.",
+                "tier": "Official",
+                "status": "Active",
+                "transport": "streamable-http",
+                "tools": [
+                    "get_my_user_info",
+                    "create_repo",
+                    "fork_repo",
+                    "search_repos",
+                    "search_users",
+                    "search_org_teams",
+                    "get_gitea_mcp_server_version",
+                    "repo_list",
+                    "repo_get",
+                    "repo_delete",
+                    "repo_update",
+                    "branch_list",
+                    "branch_create",
+                    "branch_delete",
+                    "branch_get",
+                    "commit_get",
+                    "commit_list",
+                    "file_get",
+                    "file_create",
+                    "file_update",
+                    "file_delete",
+                    "file_list",
+                    "tag_list",
+                    "tag_create",
+                    "tag_delete",
+                    "release_list",
+                    "release_get",
+                    "release_create",
+                    "release_delete",
+                    "issue_list",
+                    "issue_get",
+                    "issue_create",
+                    "issue_update",
+                    "issue_delete",
+                    "issue_comment_add",
+                    "issue_comment_list",
+                    "pull_list",
+                    "pull_get",
+                    "pull_create",
+                    "pull_update",
+                    "pull_merge",
+                    "pull_review_add",
+                    "pull_review_list",
+                    "label_list",
+                    "label_create",
+                    "label_update",
+                    "label_delete",
+                    "milestone_list",
+                    "milestone_get",
+                    "milestone_create",
+                    "milestone_update",
+                    "milestone_delete",
+                    "workflow_list",
+                    "workflow_get",
+                    "workflow_run",
+                    "workflow_run_list",
+                    "workflow_run_get",
+                    "workflow_run_logs",
+                    "workflow_job_list",
+                    "workflow_job_logs",
+                    "workflow_artifact_list",
+                    "workflow_artifact_download",
+                    "workflow_secret_list",
+                    "workflow_secret_create",
+                    "workflow_secret_update",
+                    "workflow_secret_delete",
+                    "workflow_variable_list",
+                    "workflow_variable_create",
+                    "workflow_variable_update",
+                    "workflow_variable_delete",
+                    "wiki_list",
+                    "wiki_get",
+                    "wiki_create",
+                    "wiki_update",
+                    "wiki_delete"
+                ],
+                "metadata": {
+                    "stars": 1,
+                    "pulls": 100000,
+                    "last_updated": "2025-12-18T16:43:00Z"
+                },
+                "repository_url": "https://gitea.com/gitea/gitea-mcp",
+                "tags": [
+                    "git",
+                    "version-control",
+                    "repository",
+                    "collaboration",
+                    "devops",
+                    "ci-cd",
+                    "code-management",
+                    "api"
+                ],
+                "image": "quay.io/rhpds/gitea-mcp-server:latest",
+                "permissions": {
+                    "network": {
+                        "outbound": {}
+                    }
+                },
+                "env_vars": [
+                    {
+                        "name": "GITEA_ACCESS_TOKEN",
+                        "description": "Gitea personal access token",
+                        "required": true,
+                        "secret": true
+                    },
+                    {
+                        "name": "GITEA_HOST",
+                        "description": "The URL of the Gitea instance",
+                        "required": false,
+                        "default": "https://gitea.com"
+                    },
+                    {
+                        "name": "GITEA_INSECURE",
+                        "description": "Whether to use insecure mode",
+                        "required": false,
+                        "default": "false"
+                    }
+                ]
+            }
+        }
+    }
+----
+
+. Commit and push the changes. The registry now has both:
++
+* *Auto-discovered servers* — From MCPServer annotations
+* *Static catalog entries* — From the ConfigMap
+
+This dual-source approach provides flexibility: servers can be discovered automatically while administrators maintain a curated approved list.
+
 == Enabling Registry Enforcement
 
-Now let's enable enforcement on your registry. This requires adding a single field to the MCPRegistry resource.
+With our approved server list in the registry, we can now enable enforcement. This will prevent any MCP server deployments that aren't registered.
 
-[start=8]
-. Update the MCPRegistry to enable enforcement. In Gitea, edit the `mcpregistry.yaml` file in your Helm chart templates and add `enforceServers: true`:
+[start=16]
+. Update the MCPRegistry (`mcpregistry.yaml`) to enable enforcement by adding `enforceServers: true`:
 +
 [source,yaml,role=execute,subs=attributes]
 ----
@@ -677,35 +716,31 @@ kind: MCPRegistry
 metadata:
   name: mcp-registry
   namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   enforceServers: true  # <-- Add this line
-  displayName: "ToolHive Official Registry (Git)"
-  registries:
-    - name: rh-one-mcp
-      format: toolhive
-      configMapRef:
-        name: rh-one-mcp
-        key: registry.json
-      syncPolicy:
-        interval: "1h"
-  databaseConfig:
-    host: mcp-registry-db-rw.{{ .Values.namespace }}.svc.cluster.local
-    port: 5432
-    user: db_app
-    migrationUser: db_migrator
-    database: registry
-    sslMode: require
-    dbAppUserPasswordSecretRef:
-      name: mcp-registry-db-password
-      key: user-password
-    dbMigrationUserPasswordSecretRef:
-      name: mcp-registry-db-password
-      key: migrator-password
+  [...]
 ----
 +
 The `enforceServers: true` field tells ToolHive to validate all MCPServer resources in this namespace against the registry catalog.
 
 . Commit and push your changes. ArgoCD will sync the updated MCPRegistry.
+. Once the MCP Registry has been updated you can check that it should now show 4 MCP servers registered:
+[source,sh,role=execute,subs=attributes]
+----
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq -r '.servers[].server.name'
+----
++
+.Sample output
+[source,subs=attributes]
+----
+io.github.stacklok/fetch-mcp-server
+io.github.stacklok/gitea-mcp-server
+com.toolhive.k8s.mcp-gitea-{user}/fetch
+com.toolhive.k8s.mcp-gitea-{user}/gitea
+----
+
 . Verify enforcement is active by checking the MCPRegistry status:
 +
 [source,sh,role=execute,subs=attributes]
@@ -715,65 +750,73 @@ oc get mcpregistry mcp-registry -n mcp-gitea-{user} -o jsonpath='{.status.enforc
 +
 You should see `enabled` or similar status indicating enforcement is active.
 
-== Testing Registry Enforcement
+== Demonstrating Enforcement
 
-With enforcement enabled, let's verify it works by attempting to deploy an unapproved MCP server.
+Now let's see enforcement in action. Earlier, we deleted the Yardstick MCP server. Let's try to re-deploy it now that enforcement is enabled.
 
-[start=11]
-. Create a test MCPServer resource that references an image NOT in your registry. Add file `mcpserver-unapproved.yaml` to your templates:
+=== Attempting to Deploy an Unapproved Server
+
+[start=17]
+. In Gitea, recreate the Yardstick MCP server definition. Add file `mcpserver-yardstick.yaml` back to the `/mcp/helm/mcp-gitea/templates/` directory with the following content:
 +
 [source,yaml,role=execute,subs=attributes]
 ----
----
 apiVersion: toolhive.stacklok.dev/v1alpha1
 kind: MCPServer
 metadata:
-  name: unapproved-test
+  name: yardstick
   namespace: {{ .Values.namespace }}
 spec:
-  image: ghcr.io/random-org/random-mcp-server:latest  # Not in registry
-  transport: sse
-  port: 8080
+  image: ghcr.io/stackloklabs/yardstick/yardstick-server:1.1.0
+  transport: stdio
+  proxyMode: streamable-http
 ----
 
-. Commit and push the change. Watch ArgoCD attempt to sync.
-. Observe the rejection. The MCPServer resource will fail to create with an error similar to:
-+
-----
-Error: admission webhook "mcpserver.toolhive.stacklok.dev" denied the request:
-image "ghcr.io/random-org/random-mcp-server:latest" not found in any
-enforcing registry in namespace "mcp-gitea-{user}"
-----
-+
-This error confirms that:
-+
-* The enforcement webhook intercepted the MCPServer creation
-* The image was checked against the registry catalog
-* The deployment was blocked because the image isn't approved
+. Commit and push your changes. Wait for ArgoCD to sync.
 
-. Clean up by removing or commenting out the `mcpserver-unapproved.yaml` file.
+=== Observing the Blocked Server
+
+[start=19]
+. Check the status of all MCP servers:
++
+[source,sh,role=execute,subs=attributes]
+----
+oc get mcpservers -n mcp-gitea-{user}
+----
+
+. The Yardstick server should show an error or blocked state. Check its events:
++
+[source,sh,role=execute,subs=attributes]
+----
+oc describe mcpserver yardstick -n mcp-gitea-{user}
+----
++
+The events will show a message similar to:
++
+----
+Warning  EnforcementBlocked  image "ghcr.io/stackloklabs/yardstick/yardstick-server:1.1.0"
+not found in any enforcing registry in namespace "mcp-gitea-{user}"
+----
+
+This demonstrates that:
+
+* The two registered servers (Gitea, Fetch) continue to operate normally
+* The unapproved server (Yardstick) is blocked by enforcement before it can run
+* New server deployments must be added to the registry before they can run
 
 [NOTE]
 ====
 The enforcement validation happens at admission time — before the pod is created. This is more secure than runtime enforcement because unapproved code never executes.
 ====
 
-== Deploying Registry-Approved Servers
+=== Resolving the Blocked Server
 
-Now let's deploy a server that IS in the registry to see the successful path.
+To allow the Yardstick server, you would need to either:
 
-[start=15]
-. First, verify the Kubernetes MCP server is in your registry:
-+
-[source,sh,role=execute,subs=attributes]
-----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | \
-  jq '.servers[] | select(.server.name | contains("kubernetes")) | .server.packages[].identifier'
-----
-+
-This returns the approved image: `quay.io/containers/kubernetes_mcp_server:latest-linux-amd64`
+. *Add registry annotations* to the Yardstick MCPServer resource (same as you did for Gitea and Fetch), OR
+. *Manually add Yardstick* to the ConfigMap catalog with appropriate metadata
 
-. Create an MCPServer using this approved image. The server will deploy successfully because the image exists in the enforcing registry.
+Both approaches create an audit trail in Git, ensuring all approved servers are documented and version-controlled.
 
 This demonstrates the complete governance workflow:
 
@@ -833,12 +876,15 @@ Try these additional exercises to deepen your understanding:
 
 == Summary
 
-In this module, you deployed an MCP Registry that provides centralized discovery and governance for MCP servers. The registry combines:
+In this module, you deployed an MCP Registry and experienced the complete governance workflow:
 
-* *Curated catalogs*: Manually-defined server entries in ConfigMaps
-* *Automatic discovery*: Running MCPServer instances registered dynamically
-* *Standard API*: REST interface for programmatic access
-* *Governance metadata*: Tier, status, and tags for lifecycle management
-* *Deployment enforcement*: Validation that prevents unapproved servers from running
+* *Empty start*: Deployed a registry with no pre-defined servers
+* *Automatic registration*: Used annotations to register running servers with the registry
+* *Dynamic discovery*: Watched the registry populate automatically with two servers (Gitea and Fetch)
+* *Catalog extraction*: Captured discovered servers as an approved list
+* *Enforcement activation*: Enabled server validation against the registry
+* *Blocked unapproved server*: Saw enforcement prevent the unregistered Yardstick server from running
+
+You also learned that the ToolHive registry controller only discovers MCPServers within its own namespace, which is an important architectural consideration when planning your MCP deployment topology.
 
 This foundation enables your organization to scale AI tool adoption while maintaining control, visibility, and compliance. The enforcement capability ensures that governance isn't just documentation — it's actively enforced at deployment time.

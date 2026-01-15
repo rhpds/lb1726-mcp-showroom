@@ -42,13 +42,14 @@ You learned enterprise-grade MCP server management:
 You deployed centralized governance for AI capabilities:
 
 * Set up a PostgreSQL database with CloudNativePG for persistent registry storage
-* Created a curated server catalog defining approved MCP servers with rich metadata
-* Deployed the MCP Registry using the `MCPRegistry` custom resource
-* Queried the registry API to discover available servers
-* Explored automatic server registration for running MCP server instances
-* Enabled registry enforcement to block unapproved server deployments
-* Tested enforcement by observing a rejected deployment attempt
-* Learned governance patterns including tier classification and lifecycle management
+* Deployed an MCP Registry starting with an empty server catalog
+* Added registry annotations to auto-register two MCP servers (Gitea and Fetch)
+* Verified automatic server discovery through the registry API
+* Extracted discovered servers to create an approved server list
+* Enabled registry enforcement to validate server deployments
+* Observed the Yardstick server blocked by enforcement (not in registry)
+* Learned that registry auto-discovery is namespace-scoped
+* Learned the complete governance workflow from discovery to enforcement
 
 == Key Takeaways
 
