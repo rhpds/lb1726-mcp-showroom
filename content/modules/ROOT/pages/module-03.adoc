@@ -516,7 +516,7 @@ spec:
 Notice `transport: stdio` — this tells ToolHive to inject the bridging proxy. The server itself has no HTTP code; all network functionality comes from ToolHive's proxy.
 
 . Commit the file.
-. Wait until GitOps has synced and the Yardstick MCP server has been deployed — you can check in namespace `mcp-gitea-{user}` that two new pods with names atarting with `yardstick-` are running (you may need to scroll out in the *Topology* view to see all 6 pods).
+. Wait until GitOps has synced and the Yardstick MCP server has been deployed — you can check in namespace `mcp-gitea-{user}` that two new pods with names starting with `yardstick-` are running (you may need to scroll out in the *Topology* view to see all 6 pods).
 . In LibreChat, click the *MCP Servers* button and initialize the new *yardstick* server to your session. You should now see *4 selected*.
 
 === Using the Yardstick MCP server

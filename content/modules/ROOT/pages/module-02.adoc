@@ -166,6 +166,6 @@ This separation of concerns means organizations can build sophisticated AI-power
 
 . In the panel on the right switch to the *Gitea* tab.
 . Navigate to the your user's `mcp` repository if you aren't already there.
-. Open the *agent* directory. Notice that this is a (relatively simple) Pyhon app. Feel free to show the source code and focus on the prompts that the agent is sending to the LLM.
+. Open the *agent* directory. Notice that this is a (relatively simple) Python app. Feel free to show the source code and focus on the prompts that the agent is sending to the LLM.
 . You can also explain that the LLM will notify the agent that it thinks a call to a tool is the best course of action - and then the agent actually calls that tool and feeds the output back to the LLM.
 . Optionally you could also show the *helm* directory which has the Helm charts that make up the entire solution: The agent itself, the two MCP servers, and the configuration for LibreChat. Feel free to point out that they are deployed by using the `MCPServer` custom resource instead of a `Deployment` or similar mechanism - this is important when we dive deep into MCP Registry and Toolhive later. But for now it's not really required understanding. You can also show the configuration (secrets) for LibreChat. You can also point out that LibreChat comes from the official LibreChat Helm chart and not this particular repository.
