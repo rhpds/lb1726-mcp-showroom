@@ -158,6 +158,19 @@ How can I fix that issue?
 .. You could try to delete pods in namespace `agent-{user}`. Why can/can't you delete pods in the `agent-{user}` namespace?
 .. You could try to delete pods in namespace `mcp-openshift-{user}`?  Why can/can't you delete pods in the `mcp-openshift-{user}` namespace?
 
+=== Experiment with a different model
+
+You have access to another model in your lab environment: `qwen3-14b`. Feel free to switch to that model (*My Agents* dropdown in *LibreChat*) and repeat some of the questions you posed to the other model. You may want to start a new chat for that experiment.
+
+Note that some questions won't work the same way but for Gitea for example you need to be much more explicit (`Show me the issues in my Gitea project {user}/mcp`).
+
+Note that for OpenShift questions the qwen model returns more verbose output.
+
+[TIP]
+====
+Using the correct model for the use case is an important choice. It happens that both llama and qwen3 work OK. But one works better with OpenShift output while the other works better with Gitea output.
+====
+
 === Agent source code (optional)
 
 Looking at the agent's source code reveals an important business insight: the code is remarkably simple. The agent doesn't contain complex API integration logic for OpenShift or Gitea — MCP handles all of that. The agent focuses purely on the business logic: "when a failure is reported, investigate it and create an issue."

@@ -3,7 +3,7 @@
 Your environment has already been pre-configured for you.
 
 Your Showroom is split into two parts. You are reading these instructions on the left.
-On the right hand side you see three tabs. On each tab log into the application to prepare for the demo/lab.
+On the right hand side you see four tabs. On each tab log into the application to prepare for the demo/lab.
 
 [HINT]
 ====
@@ -72,5 +72,14 @@ This lab environment uses Gitea to store all GitOps and source code artifacts. T
 . On the right panel switch to the *Gitea* tab.
 . Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
 . Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.
+
+== OpenShift GitOps
+
+Your applications are deployed using OpenShift Gitops from your Gitea repository. If you need to check the sync status later in the lab you can use this tab to log into the OpenShift GitOps console. This should not be necessary if you follow the instructions exactly.
+
+. On the right panel switch to the *OpenShift GitOps* tab if it's not already selected.
+. Click on *Log In Via OpenShift*.
+. Log in using user `{user}` and password `{password}`.
+. On the *Authorize Access* screen click *Allow selected permissions*.
 
 Switch back to the *OpenShift Console* tab to be ready for the demo / lab scenario.
