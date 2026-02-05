@@ -14,4 +14,4 @@ tabs:
 - name: Gitea
   url: 'https://gitea.${DOMAIN}'
 - name: OpenShift Gitops
-  url: `https://openshift-gitops-server-openshift-gitops.${DOMAIN}`
+  url: 'https://openshift-gitops-server-openshift-gitops.${DOMAIN}'
