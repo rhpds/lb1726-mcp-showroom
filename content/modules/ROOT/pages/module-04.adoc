@@ -69,7 +69,7 @@ The database initialization includes an important security design: separate user
 
 . Switch back to the Gitea tab. Again we are taking the same shortcut to create all new resources in the Gitea MCP Server Helm chart.
 +
-Create a PostgreSQL database by adding file `psql.yaml` under the `templates` path of the Gitea MCP Server Helm chart:
+Create a PostgreSQL database by adding file `psql.yaml` under the `templates` directory of the Gitea MCP Server Helm chart:
 +
 [source,yaml,role=execute,subs=attributes]
 ----
@@ -124,7 +124,7 @@ spec:
 The registry needs a `ConfigMap` to store its server catalog. We'll start with an empty catalog and let ToolHive's automatic discovery populate it with running servers.
 
 [start=2]
-. Create an empty `ConfigMap` to hold the MCP Registry configuration. Add file `configmap-mcp-registry-config.yaml` to the `templates`:
+. Create an empty `ConfigMap` to hold the MCP Registry configuration. Add file `configmap-mcp-registry-config.yaml` to the `templates` directory:
 +
 [source,yaml,role=execute,subs=attributes]
 ----
@@ -165,7 +165,7 @@ For this lab, we use a simple secret for convenience, but the security reminder 
 
 [start=3]
 . Create a secret with the User ID and Password for the PostgreSQL database.
-Create a file `secret-mcp-registry-db-password.yaml` under `templates`:
+Add file `secret-mcp-registry-db-password.yaml` in the `templates` directory:
 +
 [source,yaml,role=execute,subs=attributes]
 ----
@@ -290,7 +290,7 @@ Once all resources are deployed, you can query the registry API to verify it's w
 +
 [source,sh,role=execute,subs=attributes]
 ----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/mcp-registry/v0.1/servers | jq
 ----
 +
 You should see an empty servers array:
@@ -309,7 +309,7 @@ The registry is running but has no servers registered yet. Next, we'll use ToolH
 
 == Registering MCP servers with the registry
 
-ToolHive supports automatic server registration through annotations on MCPServer resources. When an MCPServer has the `toolhive.stacklok.dev/registry-export: "true"` annotation, the registry controller automatically discovers and registers it.
+ToolHive supports automatic server registration through annotations on MCPServer resources. When an MCPServer has the `toolhive.stacklok.dev/registry-export: "true"` annotation, the registry controller automatically discovers and registers it. The automatic registration will always happen in the `default` registry though and not in the registry that we configured. This makes sense because that way the configured registry will not clash with auto-discovered MCP servers.
 
 The registration annotations are:
 
@@ -370,11 +370,11 @@ spec:
 === Verifying registered servers
 
 [start=10]
-. Query the registry to see the auto-registered servers:
+. Query the registry to see the auto-registered servers (note that you are using the `default` registry, not our configured `mcp-registry`):
 +
 [source,sh,role=execute,subs=attributes]
 ----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/default/v0.1/servers | jq
 ----
 +
 You should now see two servers registered:
@@ -420,6 +420,63 @@ The JSON response from the registry API provides comprehensive information about
 
 *Server Count*:: The `metadata.count` field shows the total number of servers in the registry — useful for monitoring catalog growth and ensuring expected servers are present.
 
+== Adding MCP Servers to the configured registry
+
+In order to add validated MCP Servers to the configured registry you need to update the JSON file in the ConfigMap.
+
+. In Gitea navigate back to the `templates` directory and edit the ConfigMap `configmap-mcp-registry-config.yaml` (you can simply overwrite the existing definition with this one) to add the *Fetch* MCP Server to your registry.
++
+[source,yaml]
+----
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-registry-config
+  namespace: {{ .Values.namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  registry.json: |
+    {
+      "$schema": "https://raw.githubusercontent.com/stacklok/toolhive/main/pkg/registry/data/schema.json",
+      "version": "1.0.0",
+      "last_updated": "2026-02-06T13:00:00Z",
+      "servers": {
+        "fetch": {
+          "name": "fetch",
+          "description": "A Model Context Protocol server that provides web fetching and content retrieval capabilities with streamable HTTP transport.",
+          "transport": "streamable-http",
+          "image": "ghcr.io/stackloklabs/gofetch/server:1.0.2",
+          "target_port": 8080,
+          "status": "Active",
+          "tier": "Community",
+          "permissions": {},
+          "tools": [
+            "fetch",
+            "http_get"
+          ],
+          "tags": [
+            "web",
+            "fetch",
+            "http",
+            "content",
+            "streamable-http"
+          ]
+        }
+      }
+    }
+----
+
+. When the update has synced to the OpenShift Cluster and the Registry API has been updated (this could take 2 minutes) try the curl command again to list the available MCP Servers:
++
+[source,sh,role=execute,subs=attributes]
+----
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/mcp-registry/v0.1/servers | jq
+----
++
+You will see that now we have 1 server available - if you query the `default` registry again you'll see that we still have 2 servers registered there.
+
 == Exploring MCP registry capabilities
 
 Now that your registry is operational, let's explore what you can do with it. These exercises demonstrate the practical value of having a centralized server catalog.
@@ -434,7 +491,7 @@ Get a quick view of what's available:
 
 [source,sh,role=execute,subs=attributes]
 ----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq -r '.servers[].server.name'
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/default/v0.1/servers | jq -r '.servers[].server.name'
 ----
 
 .Example output
@@ -456,7 +513,7 @@ Retrieve complete information about the Fetch MCP server:
 
 [source,sh,role=execute,subs=attributes]
 ----
-curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.servers[] | select(.server.name | contains("fetch"))'
+curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/mcp-registry/v0.1/servers | jq '.servers[] | select(.server.name | contains("fetch"))'
 ----
 
 This provides all configuration details in one place — no hunting through multiple sources.
@@ -524,8 +581,9 @@ Create scripts that query the registry before operations:
 #!/bin/bash
 # Example: List available MCP servers with their descriptions
 REGISTRY_URL="https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}"
+REGISTRY_NAME="default"
 
-curl -s "${REGISTRY_URL}/registry/v0.1/servers" | \
+curl -s "${REGISTRY_URL}/registry/${REGISTRY_NAME}/v0.1/servers" | \
   jq -r '.servers[] | "\(.server.name): \(.server.description)"'
 ----
 
@@ -538,7 +596,7 @@ Track registry health with simple checks:
 [source,sh,role=execute,subs=attributes]
 ----
 # Check that expected number of servers are registered
-SERVER_COUNT=$(curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/v0.1/servers | jq '.metadata.count')
+SERVER_COUNT=$(curl -s https://mcp-registry-mcp-gitea-{user}.{openshift_cluster_ingress_domain}/registry/default/v0.1/servers | jq '.metadata.count')
 echo "Registered servers: ${SERVER_COUNT}"
 
 # Alert if below expected threshold
