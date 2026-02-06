@@ -12,6 +12,6 @@ tabs:
 - name: LibreChat
   url: 'https://librechat-librechat-${USER}.${DOMAIN}'
 - name: Gitea
-  url: 'https://gitea.${DOMAIN}'
+  url: 'https://gitea.${DOMAIN}/${USER}/mcp'
 - name: OpenShift Gitops
   url: 'https://openshift-gitops-server-openshift-gitops.${DOMAIN}'
