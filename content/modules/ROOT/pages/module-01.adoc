@@ -71,7 +71,6 @@ This lab environment uses Gitea to store all GitOps and source code artifacts. T
 
 . On the right panel switch to the *Gitea* tab.
 . Click on *Sign in* in the top right corner and log in using your Gitea user: `{gitea_user}` with password `{gitea_password}`
-. Navigate to the your user's *mcp* repository. Under *Repositories* on the right click on *{gitea_user}/mcp*.
 
 == OpenShift GitOps
 
