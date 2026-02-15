@@ -13,6 +13,7 @@ Your user's password is the same for all applications.
 == OpenShift Console
 
 . On the right panel switch to the *OpenShift Console* tab if it's not already selected.
+. On the login page select the *rhbk* identity provider.
 . Log in using user `{user}` and password `{password}`
 . Upon seeing the OpenShift Console click on *Skip tour* and then minimize the Lightspeed popup if it appears.
 
