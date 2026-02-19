@@ -1,10 +1,14 @@
 ---
 type: showroom
 
-# Set the left column width to 30%
+# Set the left column width to 40%
 default_width: 40
 # Persist the URL state so browser refresh doesn't reset the UI
 persist_url_state: true
+# Enable view switcher (instructions, split, tabs)
+view_switcher:
+  enabled: true
+  default_mode: split
 
 tabs:
 - name: OpenShift Console
