@@ -14,6 +14,6 @@ tabs:
 - name: OpenShift Console
   url: 'https://console-openshift-console.${DOMAIN}'
 - name: LibreChat
-  url: 'https://librechat-${USER}-2-librechat.${DOMAIN}'
+  url: '${LIBRECHAT_URL}'
 - name: Gitea
-  url: 'https://gitea-${USER}-5-gitea.${DOMAIN}'
+  url: '${GITEA_URL}'
