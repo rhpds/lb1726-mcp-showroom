@@ -16,4 +16,4 @@ tabs:
 - name: LibreChat
   url: 'https://librechat-${USER}-2-librechat.${DOMAIN}'
 - name: Gitea
-  url: 'https://gitea.${DOMAIN}'
+  url: 'https://gitea-${USER}-5-gitea.${DOMAIN}'
