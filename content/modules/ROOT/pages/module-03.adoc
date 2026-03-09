@@ -61,7 +61,7 @@ Your `{user}/mcp` repository contains everything needed to run the lab environme
 [source]
 ----
 {user}/mcp/
-├── helm/
+├── tenant/
 │   ├── mcp-openshift/          # OpenShift MCP Server
 │   │   ├── Chart.yaml
 │   │   ├── values.yaml
@@ -122,7 +122,7 @@ Now that you understand how changes flow from Git to the cluster, let's create a
 
 ToolHive provides the `MCPToolConfig` custom resource for declarative tool filtering. You define which tools are permitted, and the ToolHive proxy enforces these restrictions at the protocol level — the AI never even sees the filtered tools in its `tools/list` response.
 
-. In Gitea navigate to `{user}/mcp/helm/mcp-openshift/templates` and create a new file `mcptoolconfig.yaml`:
+. In Gitea navigate to `{user}/mcp/tenant/mcp-openshift/templates` and create a new file `mcptoolconfig.yaml`:
 +
 [source,yaml,role=execute]
 ----
@@ -343,7 +343,7 @@ The ability to fetch web content opens up powerful use cases for AI agents:
 
 === Deploying the Fetch MCP Server
 
-. In Gitea, navigate to `{user}/mcp/helm/mcp-gitea`.
+. In Gitea, navigate to `{user}/mcp/tenant/mcp-gitea`.
 
 . Create a file `templates/mcpserver-fetch.yaml`:
 +
@@ -466,7 +466,7 @@ Yardstick is a simple MCP server created specifically for testing and validation
 
 While Yardstick itself is a testing tool, deploying it demonstrates the pattern for *any* stdio-based MCP server.
 
-. In Gitea, navigate to `{user}/mcp/helm/mcp-gitea/templates`.
+. In Gitea, navigate to `{user}/mcp/tenant/mcp-gitea/templates`.
 . Create a file `mcpserver-yardstick.yaml`:
 +
 [source,yaml,role=execute]
