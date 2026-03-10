@@ -13,3 +13,7 @@ asciidoc:
     page-links:
     - url: https://redhat.com
       text: Red Hat
+    environment_variables:
+      LIBRECHAT_URL: "{librechat_url}"
+      GITEA_URL: "{gitea_url}"
+      OPENSHIFT_CONSOLE_URL: "{openshift_console_url}"
