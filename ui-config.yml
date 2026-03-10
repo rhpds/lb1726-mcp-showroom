@@ -12,8 +12,8 @@ view_switcher:
 
 tabs:
 - name: OpenShift Console
-  url: '${OPENSHIFT_CONSOLE_URL}'
+  url: 'https://console-openshift-console.${DOMAIN}'
 - name: LibreChat
-  url: '${LIBRECHAT_URL}'
+  url: 'https://librechat-${USER}-librechat.${DOMAIN}'
 - name: Gitea
-  url: '${GITEA_URL}'
+  url: 'https://gitea-${USER}-gitea.${DOMAIN}'
